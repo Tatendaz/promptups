@@ -1,0 +1,37 @@
+{
+  "name": "promptups",
+  "version": "0.1.0",
+  "description": "Do reps while Claude thinks. Webcam rep counting wired into Claude Code's wait loop.",
+  "type": "module",
+  "bin": {
+    "promptups": "bin/promptups.js"
+  },
+  "scripts": {
+    "start": "node bin/promptups.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "claude-code",
+    "hooks",
+    "fitness",
+    "pose-detection",
+    "mediapipe",
+    "webcam",
+    "vibe-coding"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Tatendaz/promptups"
+  },
+  "license": "MIT",
+  "files": [
+    "bin",
+    "server.js",
+    "public",
+    "README.md",
+    "LICENSE"
+  ]
+}
