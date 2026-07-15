@@ -29,7 +29,13 @@ let state = { thinking: false, startedAt: null, reason: null };
 
 function broadcast(event) {
   const line = `data: ${JSON.stringify(event)}\n\n`;
-  for (const res of clients) res.write(line);
+  for (const res of clients) {
+    try {
+      res.write(line);
+    } catch {
+      clients.delete(res); // a stale client must not break the others
+    }
+  }
 }
 
 function readSessions() {
@@ -92,6 +98,16 @@ function readBody(req) {
 
 export function startServer(port) {
   const server = http.createServer(async (req, res) => {
+    try {
+      await handle(req, res);
+    } catch (err) {
+      console.error("promptups: request failed:", err);
+      if (!res.headersSent) return sendJson(res, 500, { error: "internal error" });
+      res.end();
+    }
+  });
+
+  async function handle(req, res) {
     const url = new URL(req.url, `http://127.0.0.1:${port}`);
 
     // Event bus: hooks hit these. GET allowed too so `curl` testing is easy.
@@ -116,6 +132,7 @@ export function startServer(port) {
       res.write(`data: ${JSON.stringify({ type: "hello", ...state })}\n\n`);
       clients.add(res);
       req.on("close", () => clients.delete(res));
+      res.on("error", () => clients.delete(res));
       return;
     }
 
@@ -162,11 +179,17 @@ export function startServer(port) {
     }
 
     return serveStatic(req, res, url.pathname);
-  });
+  }
 
   // Keep idle SSE connections alive through proxies and sleep/wake.
   setInterval(() => {
-    for (const res of clients) res.write(":hb\n\n");
+    for (const res of clients) {
+      try {
+        res.write(":hb\n\n");
+      } catch {
+        clients.delete(res);
+      }
+    }
   }, 25_000).unref();
 
   server.listen(port, "127.0.0.1");

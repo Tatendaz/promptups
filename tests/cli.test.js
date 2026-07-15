@@ -57,6 +57,13 @@ test("init is idempotent and preserves existing settings", async () => {
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
+test("rejects a non-numeric --port before writing any hooks", async () => {
+  const { dir, file, env } = tempSettings();
+  await assert.rejects(run("node", [bin, "init", "--yes", "--port=banana"], { env }));
+  assert.equal(fs.existsSync(file), false, "no settings should be written on invalid port");
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
 test("uninstall removes only our hooks", async () => {
   const existing = {
     hooks: { Stop: [{ hooks: [{ type: "command", command: "echo mine" }] }] },

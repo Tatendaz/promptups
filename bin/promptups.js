@@ -21,6 +21,10 @@ const opt = (name, fallback) => {
 };
 
 const PORT = Number(opt("port", process.env.PROMPTUPS_PORT || 7887));
+if (!Number.isInteger(PORT) || PORT < 1 || PORT > 65535) {
+  console.error(`Invalid port ${JSON.stringify(opt("port", process.env.PROMPTUPS_PORT))}: use --port=1-65535.`);
+  process.exit(1);
+}
 const MARKER = "/promptups/"; // identifies our hook commands for idempotent install/uninstall
 const SETTINGS = process.env.PROMPTUPS_SETTINGS || path.join(os.homedir(), ".claude", "settings.json");
 
@@ -127,8 +131,14 @@ function start() {
 
   Prompt Claude in another terminal. Then move.
 `);
-  const opener = { darwin: "open", win32: "start", linux: "xdg-open" }[process.platform];
-  if (opener) spawn(opener, [url], { stdio: "ignore", detached: true }).on("error", () => {});
+  const openFailed = () => console.log(`  Could not open a browser. Visit ${url} yourself.`);
+  if (process.platform === "win32") {
+    // `start` is a cmd builtin, not an executable; the empty "" is its window title.
+    spawn("cmd", ["/c", "start", "", url], { stdio: "ignore", detached: true }).on("error", openFailed);
+  } else {
+    const opener = process.platform === "darwin" ? "open" : "xdg-open";
+    spawn(opener, [url], { stdio: "ignore", detached: true }).on("error", openFailed);
+  }
 }
 
 function hooksInstalled() {

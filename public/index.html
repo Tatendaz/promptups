@@ -42,15 +42,15 @@
       <div class="set-timer mono" id="set-timer">00:00</div>
 
       <div class="control-group">
-        <div class="control-label">exercise</div>
-        <div class="exercise-picker" role="radiogroup">
-          <button class="exercise-btn active" data-exercise="squats">SQUATS</button>
-          <button class="exercise-btn" data-exercise="deskPushups">DESK PUSH-UPS</button>
+        <div class="control-label" id="exercise-label">exercise</div>
+        <div class="exercise-picker" role="radiogroup" aria-labelledby="exercise-label">
+          <button class="exercise-btn active" role="radio" aria-checked="true" data-exercise="squats">SQUATS</button>
+          <button class="exercise-btn" role="radio" aria-checked="false" data-exercise="deskPushups">DESK PUSH-UPS</button>
         </div>
       </div>
 
       <div class="control-group">
-        <div class="control-label">camera <span class="hint">(iPhone shows up here via Continuity Camera)</span></div>
+        <label class="control-label" for="camera-select">camera <span class="hint">(iPhone shows up here via Continuity Camera)</span></label>
         <select id="camera-select" class="mono"></select>
       </div>
 

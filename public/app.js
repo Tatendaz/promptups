@@ -76,7 +76,9 @@ function chime(kind = "done") {
 // ---------- session flow ----------
 async function beginSession({ test = false } = {}) {
   if (session) return; // already mid-set: keep counting
-  session = { reps: 0, startedAt: Date.now(), token: ++sessionSeq, test };
+  // Pin the exercise for the whole set, so every rep and the logged session
+  // stay attached to one movement even if the picker changes later.
+  session = { reps: 0, startedAt: Date.now(), token: ++sessionSeq, test, exercise: currentExercise };
   counter = new RepCounter(EXERCISES[currentExercise]);
   els.repCount.textContent = "0";
   els.boardLabel.textContent = "REPS THIS PROMPT";
@@ -105,7 +107,7 @@ async function endSession(reason) {
   setMode(attention ? "attention" : "done");
   setStatus(attention ? "claude needs you" : "claude's ready");
   els.bannerTitle.textContent = attention ? "CLAUDE NEEDS YOU" : "CLAUDE'S READY";
-  const label = EXERCISES[currentExercise].label;
+  const label = EXERCISES[done.exercise].label;
   els.bannerSub.textContent = `${done.reps} ${label} while it worked`;
   chime(attention ? "attention" : "done");
 
@@ -114,7 +116,7 @@ async function endSession(reason) {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        exercise: currentExercise,
+        exercise: done.exercise,
         reps: done.reps,
         startedAt: new Date(done.startedAt).toISOString(),
         endedAt: new Date().toISOString(),
@@ -160,7 +162,7 @@ setInterval(() => {
 // ---------- pose pipeline ----------
 function frame(now) {
   if (landmarker && video.readyState >= 2 && video.videoWidth) {
-    if (canvas.width !== video.videoWidth) {
+    if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
     }
@@ -234,8 +236,13 @@ function connectEvents() {
 // ---------- controls ----------
 document.querySelectorAll(".exercise-btn").forEach((btn) => {
   btn.addEventListener("click", () => {
-    document.querySelectorAll(".exercise-btn").forEach((b) => b.classList.remove("active"));
+    if (session) return; // a set belongs to one exercise; switch between sets
+    document.querySelectorAll(".exercise-btn").forEach((b) => {
+      b.classList.remove("active");
+      b.setAttribute("aria-checked", "false");
+    });
     btn.classList.add("active");
+    btn.setAttribute("aria-checked", "true");
     currentExercise = btn.dataset.exercise;
     counter = new RepCounter(EXERCISES[currentExercise]);
   });
@@ -276,7 +283,14 @@ function renderStats(stats) {
   fetch("/api/stats").then((r) => r.json()).then(renderStats).catch(() => {});
 
   try {
-    await startCamera(localStorage.getItem("promptups.camera") || undefined);
+    const saved = localStorage.getItem("promptups.camera");
+    try {
+      await startCamera(saved || undefined);
+    } catch (err) {
+      if (!saved) throw err;
+      localStorage.removeItem("promptups.camera"); // stale device id: fall back to default
+      await startCamera(undefined);
+    }
     await listCameras(); // labels only populate after permission
   } catch {
     els.cue.textContent = "camera blocked — allow access and reload";
