@@ -5,7 +5,7 @@
 > Rep detection should mirror the camera path's hysteresis philosophy, applied to vertical
 > acceleration + head pitch instead of joint angles.
 
-### API capabilities
+## API capabilities
 
 [`CMHeadphoneMotionManager`](https://developer.apple.com/documentation/coremotion/cmheadphonemotionmanager) (CoreMotion) streams head motion from Apple/Beats headphones that support **spatial audio with dynamic head tracking** — that's the governing hardware rule per [WWDC23 "What's new in Core Motion"](https://wwdcnotes.com/documentation/wwdc23-10179-whats-new-in-core-motion/).
 
@@ -23,19 +23,19 @@
 
 **Coordinate frame**: attitude reference is **arbitrary** — set when tracking starts, unknown wear orientation, yaw drifts (no magnetometer reference). Apple doesn't document it. Headitude requires a user calibration gesture for absolute orientation. **For rep counting we don't need it**: `gravity` and `userAcceleration` share the same device frame, so vertical acceleration = `-dot(userAcceleration, normalize(gravity))` — self-calibrating, yaw-immune.
 
-### Platform support
+## Platform support
 
 From Apple's own availability metadata ([docs JSON](https://developer.apple.com/tutorials/data/documentation/coremotion/cmheadphonemotionmanager.json)): **iOS 14.0+, iPadOS 14.0+, Mac Catalyst 14.0+, watchOS 7.0+, and native macOS 14.0+ (Sonoma)**. WWDC23 confirms: "coming to macOS 14… stream device motion from audio products that support spatial audio with dynamic head tracking." Before Sonoma the class was `API_UNAVAILABLE(macos)` — which is why [MacPaw's 2022 research](https://research.macpaw.com/publications/headphones-accessibility) had to proxy through an iPhone. [Headitude](https://github.com/DanielRudrich/Headitude) proves native macOS 14 access works today. *Flagged: one forum-derived claim says native macOS may require Apple silicon; I could not verify against Apple docs — test on Intel Sonoma if you care ([portal-labs/CMHeadphoneMotionManagerMac](https://github.com/portal-labs/CMHeadphoneMotionManagerMac) exists specifically to troubleshoot macOS quirks).* visionOS: not listed.
 
-### Browser limitation
+## Browser limitation
 
 **There is no web API that exposes headphone IMU data. A native companion is mandatory.**
 - [`DeviceMotionEvent`](https://developer.mozilla.org/en-US/docs/Web/API/DeviceMotionEvent) reads the **hosting device's** accelerometer/gyro only (the Mac — which has none that matter).
 - Web Bluetooth speaks BLE GATT; AirPods carry motion over Apple's proprietary protocol on Classic Bluetooth/L2CAP and expose no GATT IMU service. Every known consumer of this data goes through CoreMotion — the entire bridge ecosystem below exists precisely because of this.
 
-### Architecture options
+## Architecture options
 
-**(a) Native macOS helper — recommended.** Tiny Swift menu-bar (or LSUIElement) app on macOS 14+: `CMHeadphoneMotionManager` → project accel onto gravity → POST/WebSocket samples (or already-thresholded rep events) to the existing Node server on localhost → page consumes via the existing SSE channel. Effort: **small** — ~300 LOC Swift; Headitude is a working reference for the CoreMotion + calibration half. Distribution: for the maintainer's own Mac, ad-hoc signing is fine; for public distribution outside the App Store, **Developer ID signing + notarization is required** by Gatekeeper ([Apple: Notarizing macOS software before distribution](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution)) — $99/yr Apple Developer account. Ship as a bundled `.app` so the motion permission prompt works cleanly.
+**(a) Native macOS helper — recommended.** Tiny Swift menu-bar (or LSUIElement) app on macOS 14+: `CMHeadphoneMotionManager` → project accel onto gravity → stream samples (or already-thresholded rep events) to the Node server on localhost → page consumes via the SSE channel. **Inbound contract (new work — today's `/events` is outbound-only and nothing ingests motion):** a new `POST /api/motion` endpoint accepting batched samples `{"t": <ms>, "av": <vertical accel, g>, "pitch": <deg>}`; the server re-broadcasts them as `motion` events on the SSE bus, and a browser-side adapter feeds them into the shared head-bob rep counter (`reps.js`). The SSE bus covers only the outbound half; endpoint, schema, and adapter are new integration surface, sized into the estimate. Effort: **small** — ~300 LOC Swift + ~50 LOC server/adapter; Headitude is a working reference for the CoreMotion + calibration half. Distribution: for the maintainer's own Mac, ad-hoc signing is fine; for public distribution outside the App Store, **Developer ID signing + notarization is required** by Gatekeeper ([Apple: Notarizing macOS software before distribution](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution)) — $99/yr Apple Developer account. Ship as a bundled `.app` so the motion permission prompt works cleanly.
 - **Zero-Swift variant**: tell users to run Headitude (existing OSC sender) and add a ~20-line UDP/OSC listener (`osc` npm package) to the Node server. Good for a v0 spike; orientation-only output (Euler/quaternion, no raw acceleration), so you'd detect reps from pitch instead — weaker signal.
 
 **(b) iOS companion app** streaming over local network (Bonjour discovery + WebSocket to the Node server). Exactly [MacPaw's architecture](https://research.macpaw.com/publications/headphones-accessibility) (iOS proxy → Bonjour → Mac client). Covers pre-Sonoma Macs and adds phone-accelerometer fallback, but: App Store review or TestFlight friction, `NSLocalNetworkUsageDescription` prompt, phone must stay unlocked-ish with app foregrounded (or use audio/motion background mode). Effort: medium. Keep as fallback, not the primary path.
@@ -51,7 +51,7 @@ From Apple's own availability metadata ([docs JSON](https://developer.apple.com/
 
 **Recommendation for PromptUps**: ship (a). macOS 14+ with any head-tracking AirPods covers most of the target audience; the helper emits the same normalized "sample/rep event" JSON the camera path could also emit, so the Node server treats both as interchangeable signal sources. Detect helper absence → fall back to camera.
 
-### Detection algorithm
+## Detection algorithm
 
 Double-integrating `userAcceleration` to displacement is a dead end: consumer-IMU bias + noise integrates to meters of drift within seconds (the reason all earable papers use band-limited/peak methods, e.g. [ExerSense](https://www.mdpi.com/1424-8220/21/1/91/htm), which counts reps via peak detection robust to sensor position). What works:
 
@@ -59,9 +59,9 @@ Double-integrating `userAcceleration` to displacement is a dead end: consumer-IM
 2. **Band-pass ~0.15–0.7 Hz** (2nd-order Butterworth or cascaded EMA). Justified: rep tempos run ~2–8 s with 2–6 s mainstream ([ACE tempo review](https://www.acefitness.org/continuing-education/certified/april-2025/8843/repetition-tempo-and-muscular-development-what-s-the-connection/)) → 0.125–0.5 Hz fundamental. This kills walking (1.5–2.5 Hz), nods (~1–3 Hz, and mostly rotational anyway), and DC drift.
 3. **Hysteresis state machine** on the filtered signal — same philosophy as the existing camera counter: descend when `a_v < -T_down` sustained ≥300 ms, count on return through `+T_up`, refractory ≥1 s, reject cycles outside 1.5–8 s.
 
-```
-ĝ ← lowpass(gravity)                      # slow EMA, τ≈2s
-a_v ← -dot(userAccel, ĝ)                  # +up, m/s²
+```text
+ĝ ← normalize(lowpass(gravity))           # slow EMA, τ≈2s
+a_v ← -dot(userAccel, ĝ)                  # +up, in g (CMAcceleration units)
 x ← bandpass(a_v, 0.15–0.7 Hz)
 state machine:
   IDLE  → DOWN  when x < -T_down for ≥0.3s        # T≈0.06–0.12 g, calibrate
@@ -75,14 +75,14 @@ session gate: require 2 consecutive valid cycles before counting from rep 1
 
 **Confounders**: sit-down/stand-up and picking something up = 1–2 cycles → the ≥2-periodic-cycles session gate excludes them; nodding = high `rotationRate.pitch`, negligible sustained `a_v` (ear translation of cm, not tens of cm) → amplitude + rotation/translation ratio check; walking away = wrong frequency band + no in-band periodicity. Periodicity (autocorrelation of the last ~10 s, or simply the cycle-time consistency check above) is the single strongest discriminator.
 
-### Prior art
+## Prior art
 
 - **Apple ships head-gesture detection**: iOS 18 nod-to-accept / shake-to-decline on H2 AirPods ([Apple Support](https://support.apple.com/guide/airpods/use-controls-and-gestures-with-your-airpods-devb2c431317/web)) — proof the sensor pipeline resolves deliberate head motion reliably.
 - **Posture apps on this exact API**: [Posture Pal (Jordi Bruin)](https://apps.apple.com/us/app/posture-pal-improve-alert/id1590316152) ([9to5Mac](https://9to5mac.com/2022/03/17/posture-pal-iphone-app-airpods/)), [workwell](https://github.com/wizenheimer/workwell).
 - **Academic earables**: [eSense open earable platform](https://www.semanticscholar.org/paper/11a74cc4107dfd42ca3e3c8bf6ac374dc8cd026d) (6-axis ear IMU; [kinetic sensing paper](https://akhilmathurs.github.io/papers/min_wearsys18.pdf)); [earbud-IMU head-angle validity study during squats/lunges](https://pmc.ncbi.nlm.nih.gov/articles/PMC8780408/) (ear IMU vs 3D mocap: strong sagittal-plane validity — directly supports squat detection from the ear); [ExerSense](https://www.mdpi.com/1424-8220/21/1/91/htm) (position-robust IMU rep counting, >90% accuracy incl. squats).
 - **Head-tracking games/tools**: [RidePods](https://anandchowdhary.com/notes/2025/airpods-based-head-motion-racing), [KhaosT demo](https://github.com/KhaosT/CMHeadphoneMotionManagerDemo), Headitude (above).
 
-### Device matrix
+## Device matrix
 
 | Headphone | Motion API | Basis |
 |---|---|---|
@@ -99,7 +99,7 @@ session gate: require 2 consecutive valid cycles before counting from rep 1
 
 Gate at runtime on `isDeviceMotionAvailable` rather than a model allowlist.
 
-### Risks
+## Risks
 
 1. **macOS < 14 users get nothing native** → detect at startup; fall back to camera or the iOS-companion path (option b). Keep camera as the default signal source.
 2. **Auto-switching/multipoint steals the stream** (AirPods jump to iPhone on a call mid-set) → subscribe to connection status updates, pause the set with a visible "signal lost" state instead of silently missing reps; document disabling automatic switching.

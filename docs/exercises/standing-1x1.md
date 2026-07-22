@@ -5,11 +5,13 @@
 > knees/ankles are cropped out of a desk-height webcam frame — and the same signal is detectable
 > by AirPods IMU with no camera at all (see [airpods-head-tracking.md](../research/airpods-head-tracking.md)).
 
-**Detection conventions used below.** Baseline = median nose Y over the 2s before the set starts, refreshed between reps at standing. All amplitudes assume a ~1.7m adult; in code, normalize by the nose-to-hip pixel distance (≈0.65m real) so thresholds survive camera geometry. Counters arm only after 2–3 consecutive cycles of consistent amplitude and period — this single rule kills most false positives (picking up a pen, sitting down, leaning for the mouse are one-shot, aperiodic events). AirPods = CMHeadphoneMotionManager: fused attitude + user acceleration at ~25 Hz, ample for 0.2–2.5 Hz rep frequencies; it senses acceleration and pitch, not absolute position, so slow reps and static holds are its weak spot.
+**Detection conventions used below.** Baseline = median nose Y over the 2s before the set starts, refreshed between reps at standing. All amplitudes assume a ~1.7m adult; in code, normalize by the nose-to-hip pixel distance (≈0.65m real) so thresholds survive camera geometry. Counters arm only after 2–3 consecutive cycles of consistent amplitude and period — this single rule kills most false positives (picking up a pen, sitting down, leaning for the mouse are one-shot, aperiodic events). AirPods = CMHeadphoneMotionManager: fused attitude + user acceleration at ~25 Hz (developer-reported, not Apple-documented — see [airpods-head-tracking.md](../research/airpods-head-tracking.md)), ample for 0.2–2.5 Hz rep frequencies; it senses acceleration and pitch, not absolute position, so AirPods detectability below is always stated in IMU terms (acceleration amplitude, pitch, periodicity — the cm figures describe what the camera sees), and slow reps and static holds are its weak spot.
 
 MET values below are matched to the **2024 Adult Compendium of Physical Activities** (pacompendium.com): calisthenics light 2.8 (02024), general 3.5 (02030), moderate 3.8 (02022), vigorous 7.5 (02020); bodyweight resistance general 3.0 (02056), high-intensity 6.5 (02057); squats/deadlift slow-or-explosive 5.0 (02052); jogging in place 4.8 (12025); walking, household 2.3 (17150). There is **no Compendium code for marching in place** — estimates for it are interpolations and marked as such.
 
 ---
+
+## The catalog
 
 ### Air Squat (`airSquat`)
 **How-to:** Feet shoulder-width, toes slightly out. Push hips back and down until thighs near parallel, chest up, heels down. Drive up through mid-foot and squeeze glutes at the top.
@@ -17,7 +19,7 @@ MET values below are matched to the **2024 Adult Compendium of Physical Activiti
 **Reps:** 30s: 10 · 60s: 20 · 120s: 35–40.
 **MET:** 5.0 (02052, squats slow/explosive) for continuous effortful sets; 3.0 (02056) at leisure pace.
 **Ratings:** silent · sweat low · knees moderate (shorten depth if cranky).
-**Detection:** `head-bob`, primary. Nose drops 25–45cm (~0.4–0.7 torso-lengths); quarter squat ~15cm. Hysteresis: down when nose Y < baseline − 20cm, up when back within 8cm. AirPods: strong — down-brake-up acceleration signature at 0.2–0.5 Hz, amplitude far above fidget noise (<5cm, aperiodic); the most IMU-detectable exercise in the catalog. The legacy hip–knee–ankle `angle-triple` (down <110°, up >155°) requires knees/ankles in frame, i.e. user stepping ~2m back — violates the 1m-from-desk reality; keep only as an optional high-fidelity mode.
+**Detection:** `head-bob`, primary. Nose drops 25–45cm (~0.4–0.7 torso-lengths); quarter squat ~15cm. Hysteresis: down when nose Y < baseline − 20cm, up when back within 8cm. AirPods: strong — down-brake-up vertical-acceleration signature at 0.2–0.5 Hz, judged on calibrated acceleration amplitude + periodicity (not distance); fidgeting is low-amplitude and aperiodic, far outside this signature. The most IMU-detectable exercise in the catalog. The legacy hip–knee–ankle `angle-triple` (down <110°, up >155°) requires knees/ankles in frame, i.e. user stepping ~2m back — violates the 1m-from-desk reality; keep only as an optional high-fidelity mode.
 **Confusion:** vs good morning — in a squat the hip landmark Y drops with the nose; in a hinge it doesn't. vs sitting down — no up-phase within 4s, no count. See cheat sheet below.
 **Safety:** Knees track over toes; don't let heels lift. Stop depth at pain-free range.
 
@@ -108,7 +110,7 @@ MET values below are matched to the **2024 Adult Compendium of Physical Activiti
 **Reps:** 30s: 40 knees · 60s: 80 · 120s: 150.
 **MET:** ~4.8–6.0 — anchored to jogging in place 4.8 (12025; the 2024 Compendium cut this from the old 8.0, so be suspicious of sources still quoting 8); hard arm-drive versions push toward vigorous-calisthenics territory (02020, 7.5) without honestly reaching it.
 **Ratings:** quiet if coached (flag: the jogged version is thumpy — the app should coach "one foot always down") · sweat moderate-high · knees friendly, hip-flexor-demanding.
-**Detection:** `landmark-displacement`: same knee-spike counter as marchInPlace with two discriminators — knee peak Y crosses **above** the hip line, and cadence >2 Hz. Nose bob 4–8cm, secondary confirmation. AirPods: moderate-good — higher-frequency, higher-amplitude bounce than march; still confusable with jogging somewhere, so camera remains primary.
+**Detection:** `landmark-displacement`: same knee-spike counter as marchInPlace with two discriminators — knee peak Y crosses **above** the hip line (the primary separator; march knees stop below it), and cadence ≥1.2 Hz, consistent with the 40-knees/30s target (~1.3 Hz). Nose bob 4–8cm, secondary confirmation. AirPods: moderate-good — higher-frequency, higher-amplitude bounce than march; still confusable with jogging somewhere, so camera remains primary.
 **Safety:** Land forefoot, stay tall; downgrade to marchInPlace when form frays.
 
 ### Standing Knee-to-Elbow (`standingKneeToElbow`)

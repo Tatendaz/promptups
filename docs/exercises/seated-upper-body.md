@@ -7,6 +7,8 @@
 
 All MET values are honest nearest matches from the 2024 Adult Compendium of Physical Activities (pacompendium.com). Seated versions sit at the low end of each range. MediaPipe indices: shoulder 11/12, elbow 13/14, wrist 15/16, hip 23/24, nose 0, ears 7/8. All exercises are fully seated and rolling-chair-safe unless flagged.
 
+## The catalog
+
 ### 1. `overheadPress` — Ceiling Press
 - **How-to:** Fists at shoulder height, elbows bent. Press both hands straight up until arms are fully extended overhead, then lower with control back to shoulders. Keep ribs down — don't arch your lower back to finish the rep.
 - **Targets:** Delts, triceps, upper traps. Re-activates shoulders stuck in mouse position.
