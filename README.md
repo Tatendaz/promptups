@@ -106,12 +106,7 @@ rm -rf ~/.promptups               # optional: delete your stats
 
 ## Roadmap
 
-- Floor push-ups and sit-ups, tuned for a phone camera at floor level
-- Plank timer for long agentic runs
-- `reps per 1k tokens` — someone has to invent the metric
-- Adapters for other agent CLIs: the trigger surface is two HTTP endpoints, so anything that can run a shell command on start and stop can drive it
-- Shareable end-of-day set card
-- Headless-browser test harness for the camera orchestration in `public/app.js`
+The full plan lives in [ROADMAP.md](ROADMAP.md). The short version: seated arm exercises (v0.2), standing exercises for the 1m×1m box in front of your desk with squats counted from head movement (v0.3), AirPods head-motion tracking so the camera becomes optional (v0.4), then calories, streaks, and Apple Watch. Exercise catalogs with detection specs are in [docs/exercises/](docs/exercises/).
 
 ## Contributing
 
