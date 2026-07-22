@@ -47,7 +47,7 @@ MET values below are matched to the **2024 Adult Compendium of Physical Activiti
 **Reps:** 30s: 20 pulses · 60s: 40 · 120s: 2×35 with a stand break.
 **MET:** 3.8–6.5 depending on duration (02022 moderate → 02057 high-intensity bodyweight).
 **Ratings:** silent · sweat moderate · knees hard (sustained deep flexion — skip with patellofemoral pain).
-**Detection:** `head-bob` with a unique signature: mean nose Y depressed 25–35cm below baseline with 8–15cm ripple at 1–2 Hz. Nothing else in the catalog produces "low mean + fast small oscillation," so it's cleanly separable from full squats. AirPods: good — continuous small-amplitude oscillation is easy to pick out of a 25 Hz stream.
+**Detection:** `head-bob` with a unique signature: mean nose Y depressed 25–35cm below baseline with 8–15cm ripple at 1–2 Hz. Nothing else in the catalog produces "low mean + fast small oscillation," so it's cleanly separable from full squats. AirPods: good, with a caveat — 1–2 Hz pulses sit above the default squat band-pass (0.1–0.7 Hz), so pulse mode needs its own per-exercise frequency profile (band ≈0.8–2.5 Hz); 25 Hz sampling covers that comfortably.
 **Safety:** Highest knee-load entry here; hard stop on sharp kneecap pain.
 
 ### Sumo Squat (`sumoSquat`)

@@ -56,7 +56,7 @@ From Apple's own availability metadata ([docs JSON](https://developer.apple.com/
 Double-integrating `userAcceleration` to displacement is a dead end: consumer-IMU bias + noise integrates to meters of drift within seconds (the reason all earable papers use band-limited/peak methods, e.g. [ExerSense](https://www.mdpi.com/1424-8220/21/1/91/htm), which counts reps via peak detection robust to sensor position). What works:
 
 1. **Vertical channel**: `a_v = -dot(userAcceleration, ĝ)` where `ĝ = normalize(gravity)` — same frame, no calibration, yaw-drift-immune.
-2. **Band-pass ~0.15–0.7 Hz** (2nd-order Butterworth or cascaded EMA). Justified: rep tempos run ~2–8 s with 2–6 s mainstream ([ACE tempo review](https://www.acefitness.org/continuing-education/certified/april-2025/8843/repetition-tempo-and-muscular-development-what-s-the-connection/)) → 0.125–0.5 Hz fundamental. This kills walking (1.5–2.5 Hz), nods (~1–3 Hz, and mostly rotational anyway), and DC drift. **Jitter-safe by construction:** Bluetooth delivery never guarantees uniform spacing (risk 3), so either uniformly resample to a fixed grid (e.g. linear-interpolate to 25 Hz) before filtering or derive the filter coefficients from each sample's actual `dt`; and every duration in the detector (the 300 ms qualification window, the refractory period, the 1.5–8 s cycle bounds) is measured on sample timestamps, never sample counts.
+2. **Band-pass ~0.1–0.7 Hz** (2nd-order Butterworth or cascaded EMA). Justified: rep tempos run ~2–8 s with 2–6 s mainstream ([ACE tempo review](https://www.acefitness.org/continuing-education/certified/april-2025/8843/repetition-tempo-and-muscular-development-what-s-the-connection/)) → 0.125–0.5 Hz fundamental, and the 0.1 Hz low edge passes even the slowest accepted cycle (8 s = 0.125 Hz) unattenuated, matching the state machine's 1.5–8 s bounds. This kills walking (1.5–2.5 Hz), nods (~1–3 Hz, and mostly rotational anyway), and DC drift. **Jitter-safe by construction:** Bluetooth delivery never guarantees uniform spacing (risk 3), so either uniformly resample to a fixed grid (e.g. linear-interpolate to 25 Hz) before filtering or derive the filter coefficients from each sample's actual `dt`; and every duration in the detector (the 300 ms qualification window, the refractory period, the 1.5–8 s cycle bounds) is measured on sample timestamps, never sample counts.
 3. **Hysteresis state machine** on the filtered signal — same philosophy as the existing camera counter: descend when `a_v < -T_down` sustained ≥300 ms, count on return through `+T_up`, refractory ≥1 s, reject cycles outside 1.5–8 s.
 
 ```text
@@ -64,7 +64,7 @@ Double-integrating `userAcceleration` to displacement is a dead end: consumer-IM
 # all durations measured on sample timestamps, not sample counts
 ĝ ← normalize(lowpass(gravity))           # slow EMA, τ≈2s
 a_v ← -dot(userAccel, ĝ)                  # +up, in g (CMAcceleration units)
-x ← bandpass(a_v, 0.15–0.7 Hz)
+x ← bandpass(a_v, 0.1–0.7 Hz)
 state machine:
   IDLE  → DOWN  when x < -T_down for ≥0.3s        # T≈0.06–0.12 g, calibrate
   DOWN  → UP    when x > +T_up                     # T_up < T_down (hysteresis)

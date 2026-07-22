@@ -16,7 +16,7 @@
 - Pre-push gate, then this PR.
 
 ## Decisions
-- "ipods tracking" interpreted as **AirPods** (iPods have no motion sensors); confirmed browsers cannot access headphone IMU data, so the roadmap plans a small native macOS 14+ Swift helper streaming into the existing localhost SSE bus rather than a web-only approach.
+- "ipods tracking" interpreted as **AirPods** (iPods have no motion sensors); confirmed browsers cannot access headphone IMU data, so the roadmap plans a small native macOS 14+ Swift helper that POSTs motion samples to a new `/api/motion` endpoint on the localhost server, which rebroadcasts them as `motion` events on the outbound-only `/events` SSE stream, rather than a web-only approach.
 - Squat-by-head-movement ships in two stages: v0.3 counts the camera's nose landmark bobbing (works with legs cropped out of frame today), v0.4 adds AirPods as a second source feeding the same head-bob detector — one primitive, two signal sources.
 - The v0.1 hip–knee–ankle squat detector is kept as an opt-in "high-fidelity mode" rather than deleted, since it's stricter about depth when the user can step back.
 - Exercises the research rejected (jumping jacks, lunges, chair dips, wall sits, side bends) are recorded in per-catalog cut lists with reasons, so they don't get relitigated.
