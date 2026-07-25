@@ -15,10 +15,10 @@ Claude Code prompts take thirty seconds to five minutes. That idle time currentl
 - `public/reps.js`: pose geometry + hysteresis rep counter (pure logic, no DOM), with smoothing and a minimum down-phase so jitter and bounces can't fake reps. Exercises are data: one `EXERCISES` entry per movement.
 - `public/app.js`: browser orchestration. MediaPipe Tasks Vision pose landmarking (all in-tab, nothing uploaded), camera picker (iPhone works via Continuity Camera), skeleton overlay, session flow driven by SSE.
 - `public/coach.js`: coach personality. Web Speech API counts reps aloud; line banks for start/milestone/finish/zero-rep/attention/roast moments; `--ai-coach` upgrade path with canned fallback.
-- `tests/`: 24 tests across rep counting, coach, server endpoints, and CLI hook install/uninstall.
+- `tests/`: 25 tests across rep counting, coach, server endpoints, and CLI hook install/uninstall.
 - `.github/workflows/pr-gate.yml`: server-side gate (tests, coverage-for-new-code, docs entries) with untrusted-input hardening for fork PR branch names.
 
 ## Notes
 - `public/app.js` (DOM + camera + MediaPipe wiring) has no automated tests; its testable logic was deliberately extracted into `public/reps.js`, which does. A headless-browser harness is a roadmap item.
 - Hooks curl with a 1-second timeout and ignore failure, so Claude Code is unaffected when PromptUps isn't running.
-- First page load fetches the MediaPipe pose model (about 5 MB) from a CDN; cached afterwards.
+- First page load fetches the MediaPipe runtime and pose model from a CDN (~8.5 MB over the wire, of which the model is 5.8 MB); cached afterwards. The webfonts in `public/index.html` are refetched-or-revalidated on every load, so the page is not offline-clean.

@@ -2,7 +2,7 @@
 
 # 🏋️ PromptUps
 
-## Prompt Claude. Drop and give me ten.
+**Prompt Claude. Drop and give me ten.**
 
 Every time you prompt [Claude Code](https://claude.com/claude-code), your webcam turns into a rep counter — **squats and desk push-ups counted out loud by a trash-talking coach** — and a chime tells you the second your code is ready. The AI gets smarter. Now you get stronger.
 
@@ -33,21 +33,28 @@ PromptUps claims it back, with zero workflow change:
 
 ## Quick start
 
+**You need:** Node 18+, `git`, and `curl` — the hooks are `curl` one-liners. That's the whole list. There is nothing to `npm install`; the dependency count is zero and stays zero.
+
 ```bash
 git clone https://github.com/Tatendaz/promptups && cd promptups
 node bin/promptups.js init    # shows the hooks, asks first, backs up settings.json
 node bin/promptups.js         # starts the server, opens http://localhost:7887
 ```
 
-Allow camera access, pick your exercise, then go prompt Claude in your terminal. The page reacts on its own from there. No dependencies to install — the server is Node's `http` module and the page pulls MediaPipe from a CDN on first load (about 5 MB, cached after).
+Allow camera access, pick your exercise, then go prompt Claude in your terminal. The page reacts on its own from there. The server is Node's `http` module; the page pulls the MediaPipe runtime and pose model from a CDN on first load (~8.5 MB over the wire, cached after).
+
+**Keep the browser window visible.** The whole pose pipeline runs on `requestAnimationFrame`, and browsers throttle that to a crawl — or stop it — when a tab isn't visible. A full-screen terminal parked on top of the page will count zero reps and never tell you why. Second monitor, split screen, or a small window in the corner. The page takes a screen wake lock, but that only keeps your display on; it can't make a hidden tab compute.
 
 Don't want to wire the hooks yet? Hit **test drive** in the header to fake a prompt.
+
+**On ports:** `--port=N` (or `PROMPTUPS_PORT`) moves the server, but `init` bakes the port into the three `curl` commands it writes, so `init` on the default and then `--port=8000` leaves you with a server nobody is talking to and no error anywhere. Re-running `init --port=8000` will *not* repair it — it sees hooks already installed and exits. To move ports: `uninstall`, then `init --port=8000`, then start on 8000. (`--yes` skips the `init` confirmation.)
 
 ## How it works
 
 ```
-you hit enter ──► UserPromptSubmit hook ──► POST /promptups/start ──► camera counts reps
-Claude replies ──► Stop hook             ──► POST /promptups/stop  ──► chime + set summary
+you hit enter  ──► UserPromptSubmit ──► POST /promptups/start                 ──► camera counts reps
+Claude replies ──► Stop             ──► POST /promptups/stop?reason=done      ──► chime + set summary
+Claude asks    ──► Notification     ──► POST /promptups/stop?reason=attention ──► amber alert + set summary
 ```
 
 `init` writes three hooks into `~/.claude/settings.json`:
@@ -56,7 +63,9 @@ Claude replies ──► Stop hook             ──► POST /promptups/stop  �
 | --- | --- |
 | `UserPromptSubmit` | Starts a set. Scoreboard orange, coach says go. |
 | `Stop` | Ends the set. Chime, summary, back to work. |
-| `Notification` | "CLAUDE NEEDS YOU" — amber alert, back to the keyboard. |
+| `Notification` | "CLAUDE NEEDS YOU" — amber alert. Hits the **same stop endpoint** as `Stop`, so the set ends and is banked here too. |
+
+That third row is the one to read twice. A permission prompt mid-squat ends your set, writes it to your stats at whatever the count was, and stops counting until your next prompt — the reps you do while you walk over and click **allow** are worth nothing. If you'd rather keep the set alive through prompts, delete that one entry from `~/.claude/settings.json`; `init` puts it back if you re-run it.
 
 Each hook is a `curl` with a 1-second timeout that ignores failure, so Claude Code behaves identically whether PromptUps is running or not. The page listens on a server-sent-events stream and does everything else itself.
 
@@ -95,13 +104,17 @@ Both run through a hysteresis state machine with smoothing and a minimum down-ph
 
 ## Privacy
 
-Every camera frame is processed by MediaPipe **inside your browser tab** and discarded. Nothing is recorded, nothing leaves your machine. The only network traffic is the one-time CDN fetch of the pose model, and localhost. Session totals (exercise, reps, timestamps) live in `~/.promptups/sessions.json`.
+Every camera frame is processed by MediaPipe **inside your browser tab** and discarded. No frame is recorded, none is uploaded, no pixel of you reaches a server. That is what the badge means, and it is the claim that matters.
+
+The page is not offline, though. It fetches from four origins, none of which see you: `cdn.jsdelivr.net` for the MediaPipe runtime and WASM, and `storage.googleapis.com` for the 5.8 MB pose model — both once, then cached ([`public/app.js`](public/app.js)) — plus `fonts.googleapis.com` and `fonts.gstatic.com` for two webfonts, on **every** page load ([`public/index.html`](public/index.html)). Everything else is localhost. Self-host the fonts and a warm page talks to nothing but your own machine.
+
+Session totals (exercise, reps, timestamps) live in `~/.promptups/sessions.json`.
 
 ## Uninstall
 
 ```bash
 node bin/promptups.js uninstall   # removes only its own hooks, backs up settings.json first
-rm -rf ~/.promptups               # optional: delete your stats
+rm -rf ~/.promptups               # optional: delete your stats ($PROMPTUPS_DATA_DIR, if you set one)
 ```
 
 ## Roadmap
@@ -115,19 +128,23 @@ rm -rf ~/.promptups               # optional: delete your stats
 
 ## Contributing
 
-The easiest PR: **add an exercise**. It's one entry in `EXERCISES` in [`public/reps.js`](public/reps.js) — a joint triple per side, two angle thresholds, and a framing cue:
+The easiest PR: **add an exercise**. It's two edits, and only the first one is interesting.
+
+**1. The movement** — one entry in `EXERCISES` in [`public/reps.js`](public/reps.js): a joint triple per side, two angle thresholds, and a framing cue. The angle is measured at the middle joint, so `hip–shoulder–elbow` is your shoulder opening up:
 
 ```js
 overheadPress: {
   label: "overhead press",
   sides: [[L.hipL, L.shoulderL, L.elbowL], [L.hipR, L.shoulderR, L.elbowR]],
-  downBelow: 60,   // elbows at shoulder height
+  downBelow: 90,   // upper arms level with the shoulders, racked
   upAbove: 150,    // arms locked out overhead
   cue: "face the camera, whole torso in frame",
 },
 ```
 
-Add a case to `tests/reps.test.js`, run `npm test` (24 tests, node:test, no dependencies), and open a PR. Coach lines live in [`public/coach.js`](public/coach.js) — funny beats polite.
+**2. The button** — one more `<button class="exercise-btn" role="radio" aria-checked="false" data-exercise="overheadPress">` in the picker in [`public/index.html`](public/index.html). Nothing iterates `EXERCISES` to build that picker; [`public/app.js`](public/app.js) only wires the `.exercise-btn` elements already in the page. Skip this step and your exercise is perfect and unreachable — and `npm test` passes anyway, because `tests/reps.test.js` covers the geometry, not the UI. Making step 2 disappear by rendering the picker from `EXERCISES` is itself a very welcome PR; it wants the DOM harness on the roadmap above.
+
+Add a case to `tests/reps.test.js`, run `npm test` (25 tests, node:test, no dependencies), and open a PR. Coach lines live in [`public/coach.js`](public/coach.js) — funny beats polite.
 
 ## License
 
