@@ -14,7 +14,7 @@
 - Measured the CDN payload over the wire with `curl` (br/gzip accepted, Chrome UA) rather than quoting a figure: 8,536,811 bytes across the MediaPipe runtime, WASM, pose model, Google Fonts stylesheet and the five latin `woff2` subsets.
 - Ran the full suite (`npm test`, no scoping): 25 tests, 25 pass, 0 fail.
 - Traced the stale test count to its source: `816f40a` added a test to `tests/cli.test.js` and left three documents saying 24. Fixed all three.
-- Fixed the README, then trimmed the first draft of the fix from 174 to 151 lines by folding a privacy table back into a paragraph and dropping a new `### Flags` heading, so the heading outline stays byte-identical to `origin/main`.
+- Fixed the README, then trimmed the first draft of the fix from 174 to 151 lines by folding a privacy table back into a paragraph and dropping a new `### Flags` heading, so the `##` section-heading outline stays unchanged from `origin/main` (the tagline H2 was demoted to bold on purpose, so the full outline is not identical).
 
 ## Decisions
 - **Documented the exercise picker's two edits instead of rendering it from `EXERCISES`.** The audit offered either. Rendering it is a product change on a docs branch, it touches DOM code that has no test harness in a zero-dependency repo (the harness is an open roadmap item), and `pr-gate.yml:81-97` would require a test change for the `public/app.js` diff that could not be written honestly. Documenting both edits also lets the README name the actual trap, which is that `npm test` passes on a half-finished exercise.

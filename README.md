@@ -65,7 +65,7 @@ Claude asks    ──► Notification     ──► POST /promptups/stop?reason=
 | `Stop` | Ends the set. Chime, summary, back to work. |
 | `Notification` | "CLAUDE NEEDS YOU" — amber alert. Hits the **same stop endpoint** as `Stop`, so the set ends and is banked here too. |
 
-That third row is the one to read twice. A permission prompt mid-squat ends your set, writes it to your stats at whatever the count was, and stops counting until your next prompt — the reps you do while you walk over and click **allow** are worth nothing. If you'd rather keep the set alive through prompts, delete that one entry from `~/.claude/settings.json`; `init` puts it back if you re-run it.
+That third row is the one to read twice. A permission prompt mid-squat ends your set and stops counting until your next prompt — the reps you do while you walk over and click **allow** are worth nothing. If you had counted at least one rep, the short set is banked to your stats at whatever the count was; a set at zero is dropped, and test drives never bank ([`public/app.js`](public/app.js) gates the write on both). If you'd rather keep the set alive through prompts, delete that one entry from `~/.claude/settings.json`; `init` puts it back if you re-run it.
 
 Each hook is a `curl` with a 1-second timeout that ignores failure, so Claude Code behaves identically whether PromptUps is running or not. The page listens on a server-sent-events stream and does everything else itself.
 
@@ -106,7 +106,7 @@ Both run through a hysteresis state machine with smoothing and a minimum down-ph
 
 Every camera frame is processed by MediaPipe **inside your browser tab** and discarded. No frame is recorded, none is uploaded, no pixel of you reaches a server. That is what the badge means, and it is the claim that matters.
 
-The page is not offline, though. It fetches from four origins, none of which see you: `cdn.jsdelivr.net` for the MediaPipe runtime and WASM, and `storage.googleapis.com` for the 5.8 MB pose model — both once, then cached ([`public/app.js`](public/app.js)) — plus `fonts.googleapis.com` and `fonts.gstatic.com` for two webfonts, on **every** page load ([`public/index.html`](public/index.html)). Everything else is localhost. Self-host the fonts and a warm page talks to nothing but your own machine.
+The page is not offline, though. It fetches from four origins, none of which see you: `cdn.jsdelivr.net` for the MediaPipe runtime and WASM, and `storage.googleapis.com` for the 5.8 MB pose model — both once, then cached ([`public/app.js`](public/app.js)) — plus `fonts.googleapis.com` and `fonts.gstatic.com` for two webfonts, which are **refetched-or-revalidated on every page load** rather than served purely from cache ([`public/index.html`](public/index.html)). Everything else is localhost. Self-host the fonts and a warm page talks to nothing but your own machine.
 
 Session totals (exercise, reps, timestamps) live in `~/.promptups/sessions.json`.
 
@@ -114,7 +114,7 @@ Session totals (exercise, reps, timestamps) live in `~/.promptups/sessions.json`
 
 ```bash
 node bin/promptups.js uninstall   # removes only its own hooks, backs up settings.json first
-rm -rf ~/.promptups               # optional: delete your stats ($PROMPTUPS_DATA_DIR, if you set one)
+rm -rf "${PROMPTUPS_DATA_DIR:-$HOME/.promptups}"   # optional: delete your stats
 ```
 
 ## Roadmap
