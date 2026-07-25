@@ -46,7 +46,7 @@ node bin/promptups.js           # starts the server, opens http://localhost:7887
 Use `<type>/<slug>`, where `<type>` is one of `feat`, `fix`, `docs`, `chore`,
 `refactor` or `test`:
 
-```
+```text
 feat/add-overhead-press
 fix/rep-counter-bounce
 docs/contributing
@@ -69,7 +69,7 @@ behind it — that is the point of the project.
 
 On branch `feat/add-overhead-press`, on 2026-07-25:
 
-```
+```text
 docs/features/2026-07-25-add-overhead-press.md    what changed and why
 docs/summaries/2026-07-25-add-overhead-press.md   the session/prompt log
 ```
