@@ -1,6 +1,9 @@
 // PromptUps front end: camera in, pose landmarks out, reps counted,
 // all driven by start/stop events from the Claude Code hooks via SSE.
 // Every frame is processed in this tab by MediaPipe (WASM/GPU). No uploads.
+//
+// This file is the browser-only half: camera, canvas, speech, EventSource, DOM.
+// Every decision it makes lives in ./session.js, which node:test covers.
 
 import {
   FilesetResolver,
@@ -9,6 +12,21 @@ import {
 } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
 import { coach } from "./coach.js";
 import { EXERCISES, RepCounter, visibleAngle } from "./reps.js";
+import {
+  IDLE_AFTER_MS,
+  ROAST_AFTER_MS,
+  SessionTracker,
+  cameraConstraints,
+  cameraOptions,
+  chimeNotes,
+  endBanner,
+  formatDuration,
+  pickCamera,
+  routeEvent,
+  sessionPayload,
+  shouldLogSession,
+  summaryLine,
+} from "./session.js";
 
 // ---------- dom ----------
 const $ = (id) => document.getElementById(id);
@@ -35,8 +53,7 @@ let drawer = null;
 let stream = null;
 let currentExercise = "squats";
 let counter = new RepCounter(EXERCISES[currentExercise]);
-let session = null; // { reps, startedAt, token, test }
-let sessionSeq = 0;
+const tracker = new SessionTracker();
 let muted = localStorage.getItem("promptups.muted") === "1";
 let audioCtx = null;
 let roastTimer = null;
@@ -56,7 +73,7 @@ function speak(text, { interrupt = true } = {}) {
 function chime(kind = "done") {
   try {
     audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
-    const notes = kind === "attention" ? [523, 523] : [659, 988];
+    const notes = chimeNotes(kind);
     const now = audioCtx.currentTime;
     notes.forEach((freq, i) => {
       const osc = audioCtx.createOscillator();
@@ -74,11 +91,9 @@ function chime(kind = "done") {
 }
 
 // ---------- session flow ----------
-async function beginSession({ test = false } = {}) {
-  if (session) return; // already mid-set: keep counting
-  // Pin the exercise for the whole set, so every rep and the logged session
-  // stay attached to one movement even if the picker changes later.
-  session = { reps: 0, startedAt: Date.now(), token: ++sessionSeq, test, exercise: currentExercise };
+function beginSession({ test = false } = {}) {
+  // null means a set is already running: a second prompt keeps counting into it.
+  if (!tracker.begin({ test, exercise: currentExercise })) return;
   counter = new RepCounter(EXERCISES[currentExercise]);
   els.repCount.textContent = "0";
   els.boardLabel.textContent = "REPS THIS PROMPT";
@@ -88,75 +103,66 @@ async function beginSession({ test = false } = {}) {
   speak(coach.pick("start"));
   clearTimeout(roastTimer);
   roastTimer = setTimeout(() => {
-    if (session && session.reps === 0) speak(coach.pick("roast"));
-  }, 25_000);
+    if (tracker.deservesRoast()) speak(coach.pick("roast"));
+  }, ROAST_AFTER_MS);
 }
 
 async function endSession(reason) {
-  if (!session) {
+  const done = tracker.end();
+  if (!done) {
     setMode("idle");
     setStatus("listening for prompts");
     return;
   }
-  const done = session;
-  session = null;
   clearTimeout(roastTimer);
   els.testBtn.textContent = "test drive";
 
-  const attention = reason === "attention";
-  setMode(attention ? "attention" : "done");
-  setStatus(attention ? "claude needs you" : "claude's ready");
-  els.bannerTitle.textContent = attention ? "CLAUDE NEEDS YOU" : "CLAUDE'S READY";
+  const banner = endBanner(reason);
+  setMode(banner.mode);
+  setStatus(banner.status);
+  els.bannerTitle.textContent = banner.title;
   const label = EXERCISES[done.exercise].label;
-  els.bannerSub.textContent = `${done.reps} ${label} while it worked`;
-  chime(attention ? "attention" : "done");
+  els.bannerSub.textContent = summaryLine(done.reps, label);
+  chime(banner.chime);
 
-  if (!done.test && done.reps > 0) {
+  if (shouldLogSession(done)) {
     fetch("/api/session", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        exercise: done.exercise,
-        reps: done.reps,
-        startedAt: new Date(done.startedAt).toISOString(),
-        endedAt: new Date().toISOString(),
-        reason,
-      }),
+      body: JSON.stringify(sessionPayload(done, reason)),
     }).then((r) => r.json()).then(renderStats).catch(() => {});
   }
 
-  const line = attention
+  const line = banner.attention
     ? coach.pick("attention")
     : await coach.quip("done", done.reps, label);
-  speak(attention ? line : `${done.reps} ${label}. ${line}`);
+  speak(banner.attention ? line : `${done.reps} ${label}. ${line}`);
 
   // Fall back to idle unless another prompt already started a new set.
   const token = done.token;
   setTimeout(() => {
-    if (!session && sessionSeq === token) {
+    if (tracker.isLatest(token)) {
       setMode("idle");
       setStatus("listening for prompts");
     }
-  }, 8000);
+  }, IDLE_AFTER_MS);
 }
 
 function onRep() {
-  if (!session) return;
-  session.reps += 1;
-  els.repCount.textContent = String(session.reps);
+  const rep = tracker.countRep();
+  if (!rep) return;
+  els.repCount.textContent = String(rep.reps);
   els.repCount.classList.remove("pop");
   void els.repCount.offsetWidth; // retrigger the pop animation
   els.repCount.classList.add("pop");
-  if (session.reps % 5 === 0) speak(`${session.reps}. ${coach.pick("milestone")}`);
-  else speak(String(session.reps));
+  if (rep.milestone) speak(`${rep.reps}. ${coach.pick("milestone")}`);
+  else speak(String(rep.reps));
 }
 
 // timer tick
 setInterval(() => {
-  if (!session) return;
-  const s = Math.floor((Date.now() - session.startedAt) / 1000);
-  els.timer.textContent =
-    `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+  if (!tracker.active) return;
+  els.timer.textContent = formatDuration(tracker.elapsedMs());
 }, 500);
 
 // ---------- pose pipeline ----------
@@ -171,7 +177,7 @@ function frame(now) {
     const lm = result.landmarks && result.landmarks[0];
     if (lm) {
       drawer.drawConnectors(lm, PoseLandmarker.POSE_CONNECTIONS, {
-        color: session ? "#ff5c1c" : "#8f8c7c",
+        color: tracker.active ? "#ff5c1c" : "#8f8c7c",
         lineWidth: 3,
       });
       drawer.drawLandmarks(lm, { color: "#ece7da", radius: 3 });
@@ -181,7 +187,7 @@ function frame(now) {
         els.cue.classList.remove("hidden");
       } else {
         els.cue.classList.add("hidden");
-        if (session && counter.feed(angle, now)) onRep();
+        if (tracker.active && counter.feed(angle, now)) onRep();
       }
     } else {
       els.cue.textContent = "nobody in frame";
@@ -194,12 +200,7 @@ function frame(now) {
 // ---------- camera ----------
 async function startCamera(deviceId) {
   if (stream) stream.getTracks().forEach((t) => t.stop());
-  stream = await navigator.mediaDevices.getUserMedia({
-    video: deviceId
-      ? { deviceId: { exact: deviceId } }
-      : { facingMode: "user", width: { ideal: 1280 } },
-    audio: false,
-  });
+  stream = await navigator.mediaDevices.getUserMedia(cameraConstraints(deviceId));
   video.srcObject = stream;
   await video.play();
 }
@@ -208,27 +209,25 @@ async function listCameras() {
   const devices = await navigator.mediaDevices.enumerateDevices();
   const cams = devices.filter((d) => d.kind === "videoinput");
   els.cameraSelect.replaceChildren();
-  cams.forEach((cam, i) => {
+  for (const { value, label } of cameraOptions(cams)) {
     const option = document.createElement("option");
-    option.value = cam.deviceId;
-    option.textContent = cam.label || `camera ${i + 1}`;
+    option.value = value;
+    option.textContent = label;
     els.cameraSelect.appendChild(option);
-  });
-  const saved = localStorage.getItem("promptups.camera");
-  if (saved && cams.some((c) => c.deviceId === saved)) els.cameraSelect.value = saved;
+  }
+  // Labels only populate after permission, and a remembered device may be gone.
+  const chosen = pickCamera(cams, localStorage.getItem("promptups.camera"));
+  if (chosen) els.cameraSelect.value = chosen;
 }
 
 // ---------- events from the hook bus ----------
 function connectEvents() {
   const source = new EventSource("/events");
   source.onmessage = (msg) => {
-    const event = JSON.parse(msg.data);
-    if (event.type === "hello") {
-      if (event.thinking) beginSession();
-      else if (!session) setStatus("listening for prompts");
-    }
-    if (event.type === "start") beginSession();
-    if (event.type === "stop" && (!session || !session.test)) endSession(event.reason);
+    const { action, reason } = routeEvent(JSON.parse(msg.data), tracker.current);
+    if (action === "begin") beginSession();
+    else if (action === "end") endSession(reason);
+    else if (action === "idle") setStatus("listening for prompts");
   };
   source.onerror = () => setStatus("server offline — restart promptups");
 }
@@ -236,7 +235,7 @@ function connectEvents() {
 // ---------- controls ----------
 document.querySelectorAll(".exercise-btn").forEach((btn) => {
   btn.addEventListener("click", () => {
-    if (session) return; // a set belongs to one exercise; switch between sets
+    if (tracker.active) return; // a set belongs to one exercise; switch between sets
     document.querySelectorAll(".exercise-btn").forEach((b) => {
       b.classList.remove("active");
       b.setAttribute("aria-checked", "false");
@@ -261,7 +260,7 @@ els.voiceBtn.addEventListener("click", () => {
 });
 
 els.testBtn.addEventListener("click", () => {
-  if (session && session.test) endSession("done");
+  if (tracker.current?.test) endSession("done");
   else beginSession({ test: true });
 });
 
