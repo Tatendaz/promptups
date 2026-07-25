@@ -16,6 +16,11 @@ name: PR Gate
 on:
   pull_request:
     branches: [main, master]
+    # `labeled`/`unlabeled` are NOT in the default set (opened, synchronize,
+    # reopened). Without them the `skip-docs-gate` bypass below is inert:
+    # applying the label starts no run, and re-running the existing one
+    # replays the original payload, which carries no label.
+    types: [opened, synchronize, reopened, labeled, unlabeled]
 
 # Neither job needs more than the source tree. The repo default is currently
 # "read", but that is a repo setting; declare it here so it cannot drift.

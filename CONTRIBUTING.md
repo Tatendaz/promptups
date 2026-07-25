@@ -132,7 +132,7 @@ These are the required checks, by name:
 | `Docs gate (features + summaries)` | `.github/workflows/pr-gate.yml` | the two markdown files above exist |
 | `New code has new tests` | `.github/workflows/pr-gate.yml` | your diff touches tests if it touches source |
 
-`main` is protected. Pull requests are the only way in, and every PR needs:
+Merging to `main` requires a pull request, plus all of:
 
 - all required checks green,
 - all review conversations resolved,
@@ -140,6 +140,11 @@ These are the required checks, by name:
 
 GitHub does not let you approve your own pull request, so every contribution
 gets a second pair of eyes before it lands.
+
+These are enforced by the `protect-main` branch ruleset, which is applied when
+the change that introduced this file lands. If you are reading this on that PR
+itself, the list above is the agreed policy rather than something GitHub is
+already blocking on.
 
 ## Your first PR will look stuck. It isn't.
 
