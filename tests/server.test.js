@@ -65,6 +65,48 @@ test("serves the workout page and static assets", async () => {
   assert.match(js.headers.get("content-type"), /javascript/);
 });
 
+// public/app.js is loaded by the browser as <script type="module">, so its
+// relative imports are resolved as URLs against this server — Node's module
+// resolution never runs. Walk the graph the way a browser would and prove
+// every hop is a real 200 with a JS content-type. This is what stops an
+// "extract a module" refactor from shipping a page that 404s on load.
+test("serves every module the workout page imports", async () => {
+  const relative = (spec) => /^\.{0,2}\//.test(spec);
+  // Statement-initial only, and the gap before `from` may not contain a quote,
+  // so prose in a comment ("...apart from 'x'") is never mistaken for an import.
+  const specifiersIn = (source) =>
+    [
+      ...source.matchAll(/^\s*(?:import|export)\b[^;'"]*?\bfrom\s*["']([^"']+)["']/gm),
+      ...source.matchAll(/^\s*import\s*["']([^"']+)["']/gm),
+    ].map((m) => m[1]);
+
+  const page = await (await fetch(`${base}/`)).text();
+  const entries = [...page.matchAll(/<script[^>]*type="module"[^>]*src="([^"]+)"/g)];
+  assert.ok(entries.length > 0, "index.html should load at least one module");
+
+  const queue = entries.map((m) => new URL(m[1], `${base}/`).href);
+  const seen = new Set();
+  while (queue.length > 0) {
+    const url = queue.pop();
+    if (seen.has(url)) continue;
+    seen.add(url);
+
+    const res = await fetch(url);
+    assert.equal(res.status, 200, `${url} is imported by the page but not served`);
+    assert.match(res.headers.get("content-type") || "", /javascript/, `${url} needs a JS type`);
+
+    for (const spec of specifiersIn(await res.text())) {
+      if (/^https?:/.test(spec)) continue; // CDN imports are not ours to serve
+      assert.ok(relative(spec), `${url} imports "${spec}", which no browser can resolve`);
+      queue.push(new URL(spec, url).href);
+    }
+  }
+
+  for (const module of ["app.js", "session.js", "reps.js", "coach.js"]) {
+    assert.ok(seen.has(`${base}/${module}`), `${module} should be reachable from index.html`);
+  }
+});
+
 test("blocks path traversal out of public/", async () => {
   const res = await fetch(`${base}/..%2Fserver.js`);
   assert.ok([403, 404].includes(res.status), `got ${res.status}`);

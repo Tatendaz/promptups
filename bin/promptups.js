@@ -3,6 +3,7 @@
 //   promptups                 start the server and open the workout page
 //   promptups init            install Claude Code hooks (asks first, backs up settings)
 //   promptups uninstall       remove the hooks
+//   promptups --help          usage; --version prints the version
 // Flags: --port=7887  --yes  --ai-coach
 
 import fs from "node:fs";
@@ -13,12 +14,59 @@ import { spawn } from "node:child_process";
 import { startServer } from "../server.js";
 
 const args = process.argv.slice(2);
-const cmd = args.find((a) => !a.startsWith("--")) || "start";
+// Anything not starting with "-" is the subcommand. Short flags like -h count
+// as flags, not as a command name.
+const cmd = args.find((a) => !a.startsWith("-")) || "start";
 const flag = (name) => args.some((a) => a === `--${name}`);
 const opt = (name, fallback) => {
   const hit = args.find((a) => a.startsWith(`--${name}=`));
   return hit ? hit.split("=")[1] : fallback;
 };
+
+const COMMANDS = ["start", "init", "uninstall"];
+
+const USAGE = `PromptUps — reps while Claude thinks.
+
+Usage: promptups [command] [flags]
+
+Commands:
+  start            Start the server and open the workout page. (default)
+  init             Install the Claude Code hooks. Asks first, backs up settings.json.
+  uninstall        Remove the hooks PromptUps installed. Leaves yours alone.
+
+Flags:
+  --port=N         Port to listen on. Default 7887, or $PROMPTUPS_PORT.
+  --yes            Skip the confirmation prompt in \`init\`.
+  --ai-coach       End-of-set lines come from \`claude -p\` instead of the line banks.
+  -h, --help       Print this and exit.
+  -v, --version    Print the version and exit.
+
+Docs: https://github.com/Tatendaz/promptups`;
+
+function version() {
+  try {
+    return JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
+  } catch {
+    return "unknown";
+  }
+}
+
+// --help and --version have to be handled before anything else. start() boots a
+// server that never exits, so anything that falls through to it hangs forever —
+// which is exactly what `promptups --help` used to do.
+if (flag("help") || args.includes("-h")) {
+  console.log(USAGE);
+  process.exit(0);
+}
+if (flag("version") || args.includes("-v")) {
+  console.log(version());
+  process.exit(0);
+}
+if (!COMMANDS.includes(cmd)) {
+  console.error(`promptups: unknown command '${cmd}'.\n`);
+  console.error(USAGE);
+  process.exit(1);
+}
 
 const PORT = Number(opt("port", process.env.PROMPTUPS_PORT || 7887));
 if (!Number.isInteger(PORT) || PORT < 1 || PORT > 65535) {
@@ -148,6 +196,7 @@ function hooksInstalled() {
   );
 }
 
+// cmd is already validated against COMMANDS above, so `else` can only be "start".
 if (cmd === "init") await init();
 else if (cmd === "uninstall") await uninstall();
 else start();

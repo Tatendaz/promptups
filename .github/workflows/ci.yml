@@ -1,0 +1,112 @@
+name: CI
+
+# Owns testing for this repo. The PR-only convention gates (docs entries,
+# new-code-has-tests) live in pr-gate.yml; there is deliberately no `Tests`
+# job there, so there is exactly one place that runs `npm test`.
+#
+# Tailored to what promptups actually is:
+#   - zero dependencies (package.json declares no "dependencies"/"devDependencies")
+#   - no lockfile in the repo -> `npm ci` fails with EUSAGE, and
+#     actions/setup-node `cache: npm` fails because it cannot resolve one
+#   - test runner is node:test via `npm test` -> `node --test`
+#   - engines.node is ">=18"; verified green on 18.20.8 / 20.20.2 / 22.23.1 / 24.18.0
+#   - no eslint / prettier / tsconfig / biome exists, so there is no lint and
+#     no typecheck job here. Do not add one until the tooling actually lands.
+
+on:
+  push:
+    branches: [main]
+  # No branch filter: every pull request gets tested, whatever it targets.
+  pull_request:
+
+# The repo-level default is currently "read", but that is a repo setting that
+# can be flipped without touching this file. Declare it explicitly so the
+# workflow is least-privilege by declaration rather than by accident.
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  # Cancel superseded PR runs; never cancel a main build.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test:
+    name: Tests (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        # engines.node = ">=18". All four verified passing locally in Docker.
+        # Drop 18/20 from this list only when engines.node is raised to match.
+        node: ["18", "20", "22", "24"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node ${{ matrix.node }}
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ matrix.node }}
+          # Deliberately no `cache: npm`. There is no package-lock.json, and
+          # setup-node's cache step hard-fails when it cannot resolve one.
+
+      # There is nothing to install today. This step exists so that the day a
+      # dependency + lockfile are added, CI installs them instead of silently
+      # testing against a missing node_modules.
+      - name: Install dependencies (only if a lockfile exists)
+        run: |
+          if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then
+            npm ci
+          else
+            echo "No lockfile and no declared dependencies - skipping install."
+          fi
+
+      - name: Run tests
+        run: npm test
+
+  package:
+    name: Package smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+
+      # package.json declares "bin" and "files" and is not private, so this repo
+      # is publishable to npm. Catch a broken tarball before publish day, not on it.
+      - name: Build tarball
+        run: npm pack
+
+      - name: Install the tarball and run the CLI from it
+        run: |
+          set -euo pipefail
+          tarball="$(ls promptups-*.tgz)"
+          workdir="$(mktemp -d)"
+          npm install --prefix "$workdir" --no-audit --no-fund "$PWD/$tarball"
+
+          test -x "$workdir/node_modules/promptups/bin/promptups.js"
+          test -f "$workdir/node_modules/promptups/server.js"
+          test -f "$workdir/node_modules/promptups/public/index.html"
+          # The browser loads public/app.js as a module; its imports must ship too.
+          test -f "$workdir/node_modules/promptups/public/session.js"
+          test -f "$workdir/node_modules/promptups/public/reps.js"
+          test -f "$workdir/node_modules/promptups/public/coach.js"
+
+          # Point PROMPTUPS_SETTINGS at a throwaway path so nothing real is touched.
+          PROMPTUPS_SETTINGS="$workdir/settings.json" \
+            timeout 30 "$workdir/node_modules/.bin/promptups" --version
+          PROMPTUPS_SETTINGS="$workdir/settings.json" \
+            timeout 30 "$workdir/node_modules/.bin/promptups" uninstall
+
+          echo "Tarball installs and ships bin/, server.js and the whole public/ module graph."
