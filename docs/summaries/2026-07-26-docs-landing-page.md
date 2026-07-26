@@ -27,7 +27,8 @@
   recording `docs/demo.gif` later the same day. Shipping the page with a hard `<img>` would
   mean a broken-image placeholder until then; omitting the figure would mean another HTML
   edit afterwards. An `onerror` that removes the `<figure>` gets both: nothing broken now,
-  and the demo appears the moment the file lands.
+  and no HTML edit later. The removal happens at load time, so the demo shows up on the
+  first page load after `docs/demo.gif` deploys — not on an already-open tab.
 - **Led with the dead-time argument, not the feature list.** "A prompt takes thirty seconds
   to five minutes; that's an hour a day currently donated to your X feed" is the line that
   makes someone install this. The rep counting is the mechanism, not the pitch.
@@ -42,3 +43,11 @@
   accent measured about 3:1, under the 4.5:1 WCAG AA bar for button text; dark-on-accent
   brings it to roughly 6.7:1.
 - **Left `og:image` out** rather than pointing it at a file that doesn't exist yet.
+- **Corrected `downloadUrl` twice, following review on a sibling PR.** It started at the
+  repo root (a landing page, not a download), moved to `/releases/latest` — which is also
+  a landing page, since it 302s to the release's HTML view — and settled on
+  `archive/refs/tags/v0.1.0.tar.gz`, verified to return `200 application/x-gzip`. The
+  second correction landed here before this PR was ever reviewed, because the same
+  mistake was made on all the pages in the batch and there was no reason to wait for each
+  reviewer to find it independently. `softwareVersion: 0.1.0` was added to match, and the
+  two are flagged in an HTML comment as a pair to bump together.

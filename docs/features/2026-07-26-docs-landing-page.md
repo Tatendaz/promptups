@@ -41,8 +41,15 @@ social-preview metadata converts very differently from a bare repo link.
   and description. Worth generating alongside the demo GIF, since both are launch assets.
   For the same reason `twitter:card` is `summary` rather than `summary_large_image`, which
   without an image just degrades to a plain card — flip it when both assets ship.
-- **`downloadUrl` points at `/releases/latest`, not the repo root.** The repo root is a
-  landing page, not a download destination; `v0.1.0` exists and its source tarball is the
-  actual artifact. The repo URL is kept as `sameAs`.
+- **`downloadUrl` points at the tag's source archive.** It went through two corrections.
+  The repo root is a landing page, not a download; so is `/releases/latest`, which just
+  302s to the release's HTML page — and `v0.1.0` has no uploaded assets, so there is no
+  binary to link. `archive/refs/tags/v0.1.0.tar.gz` returns `200 application/x-gzip`, and
+  since PromptUps is cloned and run with `npm start` rather than installed from a
+  binary, that archive genuinely is the artifact. The repo URL is kept as `sameAs`.
+- **`softwareVersion: 0.1.0` was added** so it names the same version `downloadUrl`
+  resolves to. **The two are a matched pair: bump them together on every release** —
+  there's an HTML comment above the block saying so. This matters more here than
+  elsewhere, since `ROADMAP.md` already plans v0.2 through v0.4.
 - **Pages still needs enabling** (Settings → Pages → `main` / `/docs`) after merge. The URL
   is already baked into the canonical tag and structured data.

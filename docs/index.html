@@ -18,6 +18,9 @@
 <meta name="twitter:title" content="PromptUps — Prompt Claude. Drop and give me ten.">
 <meta name="twitter:description" content="The AI gets smarter. Now you get stronger. Webcam rep counting for the dead time between Claude Code prompts — 100% local, zero dependencies, MIT.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8F%8B%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<!-- softwareVersion and downloadUrl are a matched pair — bump both on every release.
+     downloadUrl must resolve to an actual file: /releases/latest is an HTML page, so
+     this points at the tag's source archive, which is what ships (no binary assets). -->
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -25,9 +28,10 @@
   "name": "PromptUps",
   "applicationCategory": "DeveloperApplication",
   "operatingSystem": "macOS, Linux, Windows",
+  "softwareVersion": "0.1.0",
   "description": "A Claude Code companion that turns the dead time between prompts into exercise. Claude Code hooks start a set when you submit a prompt and end it when Claude replies; your webcam counts squats and desk push-ups with MediaPipe pose landmarks, entirely in the browser, while a voice coach counts every rep out loud.",
   "url": "https://tatendaz.github.io/promptups/",
-  "downloadUrl": "https://github.com/Tatendaz/promptups/releases/latest",
+  "downloadUrl": "https://github.com/Tatendaz/promptups/archive/refs/tags/v0.1.0.tar.gz",
   "sameAs": "https://github.com/Tatendaz/promptups",
   "license": "https://github.com/Tatendaz/promptups/blob/main/LICENSE",
   "isAccessibleForFree": true,
