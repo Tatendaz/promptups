@@ -6,7 +6,8 @@
 ## Prompts
 
 This branch is the tail of a longer session about CI/CD and branch protection
-across five repos. The prompts that produced *this* change:
+across five repos. The prompts that produced *this* change, quoted **verbatim** — typos and all,
+since the point of this section is the record, not the polish:
 
 1. "Some of the PRs are blocked on coderabbitai rate limits. When thet frees up
    get coderabbit to review and thne fix any issues found until its green. watch
@@ -32,7 +33,9 @@ authorised landing it.
   rather than reviving the merged `docs/roadmap-exercise-research` branch, so the
   diff carries only this fix and none of PR #1's other content.
 - Took the file from `3e157fc` with `git checkout 3e157fc -- docs/research/airpods-head-tracking.md`,
-  then confirmed the diff was one changed line in one file before committing.
+  then confirmed that diff was one changed line in one file before committing.
+  (That figure describes the source fix alone; this record and the feature entry
+  were added on top of it, and later review rounds expanded the contract itself.)
 - Checked `git check-ignore docs/summaries/` first — unlike Vergance, promptups
   does **not** gitignore that folder, so both docs entries are required and
   committable here.
