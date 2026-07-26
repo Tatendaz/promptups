@@ -144,7 +144,9 @@ overheadPress: {
 
 **2. The button** — one more `<button class="exercise-btn" role="radio" aria-checked="false" data-exercise="overheadPress">` in the picker in [`public/index.html`](public/index.html). Nothing iterates `EXERCISES` to build that picker; [`public/app.js`](public/app.js) only wires the `.exercise-btn` elements already in the page. Skip this step and your exercise is perfect and unreachable — and `npm test` passes anyway, because `tests/reps.test.js` covers the geometry, not the UI. Making step 2 disappear by rendering the picker from `EXERCISES` is itself a very welcome PR; it wants the DOM harness on the roadmap above.
 
-Add a case to `tests/reps.test.js`, run `npm test` (25 tests, node:test, no dependencies), and open a PR. Coach lines live in [`public/coach.js`](public/coach.js) — funny beats polite.
+Add a case to `tests/reps.test.js` and run `npm test` (57 tests, node:test, no dependencies, nothing to install). Coach lines live in [`public/coach.js`](public/coach.js) — funny beats polite.
+
+Then read **[CONTRIBUTING.md](CONTRIBUTING.md)** before you open the PR. The docs gate — one of the required CI checks — enforces a convention you can't guess from the code: every PR needs a file in `docs/features/` and one in `docs/summaries/`, each named to match your branch slug. That file is the only place it's written down.
 
 ## License
 

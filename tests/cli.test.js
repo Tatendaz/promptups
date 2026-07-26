@@ -24,6 +24,62 @@ const countOurHooks = (settings) =>
     .flat()
     .filter((e) => (e.hooks || []).some((h) => h.command.includes("/promptups/"))).length;
 
+// Every command below is run with a timeout. `start()` boots a server that
+// never exits, so a regression that lets one of these fall through to it would
+// otherwise hang the whole suite instead of failing.
+const RUN_TIMEOUT = 10_000;
+
+test("--help prints usage and exits 0 instead of starting the server", async () => {
+  const { dir, file, env } = tempSettings();
+  const { stdout } = await run("node", [bin, "--help"], { env, timeout: RUN_TIMEOUT });
+  assert.match(stdout, /Usage: promptups/);
+  for (const command of ["start", "init", "uninstall"]) {
+    assert.match(stdout, new RegExp(`\\b${command}\\b`), `usage should list '${command}'`);
+  }
+  assert.doesNotMatch(stdout, /PROMPTUPS ██/, "help must not boot the server banner");
+  assert.equal(fs.existsSync(file), false, "help must not touch settings.json");
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test("-h is the same as --help", async () => {
+  const { dir, env } = tempSettings();
+  const { stdout } = await run("node", [bin, "-h"], { env, timeout: RUN_TIMEOUT });
+  assert.match(stdout, /Usage: promptups/);
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test("--version prints the package version", async () => {
+  const { dir, env } = tempSettings();
+  const pkg = JSON.parse(fs.readFileSync(fileURLToPath(new URL("../package.json", import.meta.url)), "utf8"));
+  for (const arg of ["--version", "-v"]) {
+    const { stdout } = await run("node", [bin, arg], { env, timeout: RUN_TIMEOUT });
+    assert.equal(stdout.trim(), pkg.version, `\`promptups ${arg}\` should print ${pkg.version}`);
+  }
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test("an unknown command exits non-zero with usage instead of hanging", async () => {
+  const { dir, file, env } = tempSettings();
+  await assert.rejects(
+    run("node", [bin, "bogus"], { env, timeout: RUN_TIMEOUT }),
+    (err) => {
+      assert.equal(err.code, 1, `expected exit 1, got ${err.code} (signal ${err.signal})`);
+      assert.match(err.stderr, /unknown command 'bogus'/);
+      assert.match(err.stderr, /Usage: promptups/);
+      return true;
+    }
+  );
+  assert.equal(fs.existsSync(file), false, "a bad command must not touch settings.json");
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test("--help wins over an invalid --port", async () => {
+  const { dir, env } = tempSettings();
+  const { stdout } = await run("node", [bin, "--help", "--port=banana"], { env, timeout: RUN_TIMEOUT });
+  assert.match(stdout, /Usage: promptups/);
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
 test("init --yes installs the three hooks", async () => {
   const { dir, file, env } = tempSettings();
   await run("node", [bin, "init", "--yes"], { env });
