@@ -127,7 +127,9 @@ overheadPress: {
 },
 ```
 
-Add a case to `tests/reps.test.js`, run `npm test` (24 tests, node:test, no dependencies), and open a PR. Coach lines live in [`public/coach.js`](public/coach.js) — funny beats polite.
+Add a case to `tests/reps.test.js` and run `npm test` (57 tests, node:test, no dependencies, nothing to install). Coach lines live in [`public/coach.js`](public/coach.js) — funny beats polite.
+
+Then read **[CONTRIBUTING.md](CONTRIBUTING.md)** before you open the PR. Two of the three CI checks enforce conventions you can't guess from the code — branch naming, and two markdown files per PR — and that file is the only place they're written down.
 
 ## License
 
