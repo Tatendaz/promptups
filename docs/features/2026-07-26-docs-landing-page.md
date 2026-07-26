@@ -39,5 +39,10 @@ social-preview metadata converts very differently from a bare repo link.
   the README can't drift apart.
 - **No `og:image`.** The repo has no `social-preview.png`; link previews fall back to title
   and description. Worth generating alongside the demo GIF, since both are launch assets.
+  For the same reason `twitter:card` is `summary` rather than `summary_large_image`, which
+  without an image just degrades to a plain card — flip it when both assets ship.
+- **`downloadUrl` points at `/releases/latest`, not the repo root.** The repo root is a
+  landing page, not a download destination; `v0.1.0` exists and its source tarball is the
+  actual artifact. The repo URL is kept as `sameAs`.
 - **Pages still needs enabling** (Settings → Pages → `main` / `/docs`) after merge. The URL
   is already baked into the canonical tag and structured data.
