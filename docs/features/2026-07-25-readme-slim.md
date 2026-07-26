@@ -4,7 +4,11 @@
 **Date:** 2026-07-25
 
 ## Summary
-Four factual corrections and four missing pieces of information in `README.md`. No rewrite and no cut: the structure, ordering, length and voice were already good, and every `##` section heading is unchanged (the one outline change is the tagline H2, deliberately demoted to bold text — see below). The defect class here is drift — claims that were true when written and rotted underneath working prose.
+Six drifted claims corrected (the privacy origins, the one-edit exercise
+instruction, the sample snippet's threshold, the `Notification` row, the test
+count, the download size), three missing pieces added (prerequisites, the
+tab-visibility warning, `--port` and its companions), and one outline cleanup
+(the tagline H2 demoted to bold) in `README.md`. No rewrite and no cut: the structure, ordering, length and voice were already good, and every `##` section heading is unchanged (the one outline change is the tagline H2, deliberately demoted to bold text — see below). The defect class here is drift — claims that were true when written and rotted underneath working prose.
 
 ## Motivation
 A cold audit against source found that the README's privacy sentence, its flagship "easiest PR" instruction, its hook table and its test count had all drifted away from the code. Two of those are high-consequence: the privacy sentence sits under a trust badge that links directly to it, and the "easiest PR" instruction is the first thing a new contributor follows.

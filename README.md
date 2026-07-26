@@ -90,7 +90,7 @@ Both run through a hysteresis state machine with smoothing and a minimum down-ph
 
 Every camera frame is processed by MediaPipe **inside your browser tab** and discarded. No frame is recorded, none is uploaded, no pixel of you reaches a server. That is what the badge means, and it is the claim that matters.
 
-The page is not offline, though: it pulls the MediaPipe runtime and pose model from two CDNs (once, then cached) and two Google webfonts. None of those origins see you; everything else is localhost. The full origin inventory: [docs/usage.md](docs/usage.md#network-origins). Session totals (exercise, reps, timestamps) live in `sessions.json` under `$PROMPTUPS_DATA_DIR`, defaulting to `~/.promptups`.
+The page is not offline, though: it pulls the MediaPipe runtime and pose model from two CDNs (once, then cached) and two Google webfonts. None of those origins ever receive camera data — they see only the ordinary metadata any web request carries; everything else is localhost. The full origin inventory: [docs/usage.md](docs/usage.md#network-origins). Session totals (exercise, reps, timestamps) live in `sessions.json` under `$PROMPTUPS_DATA_DIR`, defaulting to `~/.promptups`.
 
 ## Uninstall
 

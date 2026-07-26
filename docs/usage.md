@@ -48,17 +48,23 @@ This is a genuine trade-off, not a bug: you want to know Claude is blocked.
 ## Network origins
 
 No pixel of you reaches a server, but the page is not offline. It fetches from
-four origins, none of which see you:
+four origins. None of them ever receive camera data — a request carries only
+the ordinary metadata any web fetch does (IP address, user agent):
 
 - `cdn.jsdelivr.net` — the MediaPipe runtime and WASM
   ([`public/app.js`](../public/app.js)); fetched once, then cached.
 - `storage.googleapis.com` — the 5.8 MB pose model; fetched once, then cached.
 - `fonts.googleapis.com` and `fonts.gstatic.com` — two webfonts
-  ([`public/index.html`](../public/index.html)), **refetched-or-revalidated on
-  every page load** rather than served purely from cache.
+  ([`public/index.html`](../public/index.html)), fetched or revalidated
+  **depending on your browser's cache state and the response headers** — the
+  stylesheet's cache lifetime is short (24 h at time of writing), so these
+  requests recur across days rather than being one-time like the MediaPipe
+  fetches.
 
-First load is ~8.5 MB over the wire. Everything else is localhost. Self-host
-the fonts and a warm page talks to nothing but your own machine.
+A cold first load is ~8.5 MB over the wire for the MediaPipe payload (runtime +
+WASM + pose model); the two webfont requests (~54 KB) are separate, on top.
+Everything else is localhost. Self-host the fonts and a warm page talks to
+nothing but your own machine.
 
 ## Cameras
 
@@ -73,9 +79,11 @@ The picker lists every video device the browser can see:
 
 ## The coach, in detail
 
-Default mode uses built-in line banks and works offline. Start with
-`--ai-coach` and end-of-set lines come from a `claude -p` Haiku call instead —
-one short generation per set, with the line bank as fallback:
+Default mode uses built-in line banks and makes no network calls of its own —
+though the page as a whole only works offline once the CDN and font assets
+above are cached (or self-hosted). Start with `--ai-coach` and end-of-set
+lines come from a `claude -p` Haiku call instead — one short generation per
+set, which does call out to Claude, with the line bank as fallback:
 
 ```bash
 node bin/promptups.js --ai-coach
