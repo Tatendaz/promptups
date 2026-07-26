@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PromptUps — your webcam counts reps while Claude Code thinks</title>
+<meta name="description" content="Every time you prompt Claude Code, your webcam turns into a rep counter: squats and desk push-ups counted out loud by a trash-talking coach, and a chime the second your code is ready. MediaPipe pose detection runs entirely in your browser. Zero dependencies, MIT.">
+<link rel="canonical" href="https://tatendaz.github.io/promptups/">
+<meta name="theme-color" content="#0d0f12">
+<meta property="og:type" content="website">
+<meta property="og:title" content="PromptUps — Prompt Claude. Drop and give me ten.">
+<meta property="og:description" content="Your webcam becomes a rep counter for the dead time between prompts. Counted out loud, half reps don't count, chime when Claude replies. 100% local pose detection.">
+<meta property="og:url" content="https://tatendaz.github.io/promptups/">
+<!-- summary, not summary_large_image: this repo has no social-preview.png yet, and a
+     large-image card with no og:image/twitter:image just falls back to a plain card.
+     Switch to summary_large_image when the demo GIF and preview image ship. -->
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="PromptUps — Prompt Claude. Drop and give me ten.">
+<meta name="twitter:description" content="The AI gets smarter. Now you get stronger. Webcam rep counting for the dead time between Claude Code prompts — 100% local, zero dependencies, MIT.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8F%8B%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<!-- softwareVersion and downloadUrl are a matched pair — bump both on every release.
+     downloadUrl must resolve to an actual file: /releases/latest is an HTML page, so
+     this points at the tag's source archive, which is what ships (no binary assets). -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "PromptUps",
+  "applicationCategory": "DeveloperApplication",
+  "operatingSystem": "macOS, Linux, Windows",
+  "softwareVersion": "0.1.0",
+  "description": "A Claude Code companion that turns the dead time between prompts into exercise. Claude Code hooks start a set when you submit a prompt and end it when Claude replies; your webcam counts squats and desk push-ups with MediaPipe pose landmarks, entirely in the browser, while a voice coach counts every rep out loud.",
+  "url": "https://tatendaz.github.io/promptups/",
+  "downloadUrl": "https://github.com/Tatendaz/promptups/archive/refs/tags/v0.1.0.tar.gz",
+  "sameAs": "https://github.com/Tatendaz/promptups",
+  "license": "https://github.com/Tatendaz/promptups/blob/main/LICENSE",
+  "isAccessibleForFree": true,
+  "author": { "@type": "Person", "name": "Tatenda Zhou", "url": "https://tatendaz.github.io/" },
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Which cameras work?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Any the browser can see. The built-in webcam handles squats and desk push-ups. An iPhone via Continuity Camera shows up automatically on macOS — prop it against a wall and the floor comes into frame, which is what real push-ups and sit-ups need. USB webcams work too." }
+    },
+    {
+      "@type": "Question",
+      "name": "What's next?",
+      "acceptedAnswer": { "@type": "Answer", "text": "Seated arm exercises (v0.2), standing exercises for the 1 m × 1 m box in front of your desk with squats counted from head movement (v0.3), then AirPods head-motion tracking so the camera becomes optional (v0.4) — then calories, streaks, and Apple Watch. The full plan is in ROADMAP.md." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I add an exercise?",
+      "acceptedAnswer": { "@type": "Answer", "text": "It's the easiest PR: one entry in EXERCISES in public/reps.js — a joint triple per side, two angle thresholds, and a framing cue — plus a case in tests/reps.test.js. Run npm test (24 tests, node:test, no dependencies) and open a PR. Coach lines live in public/coach.js; funny beats polite." }
+    },
+    {
+      "@type": "Question",
+      "name": "How do I uninstall it?",
+      "acceptedAnswer": { "@type": "Answer", "text": "node bin/promptups.js uninstall removes only its own hooks and backs up settings.json first. rm -rf ~/.promptups if you also want your stats gone." }
+    }
+  ]
+}
+</script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: #0d0f12; --panel: #16191e; --border: rgba(255,255,255,0.11);
+    --text: #f2efe9; --muted: #9a948a; --accent: #ff5c4d; --green: #4cc38a;
+    /* White on the dark accent lands around 3:1, under the 4.5:1 bar for button
+       text. Dark-on-accent gets it to ~6.7:1. */
+    --on-accent: #1a0603;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #faf7f2; --panel: #ffffff; --border: rgba(0,0,0,0.12);
+      --text: #1c1a17; --muted: #6b665e; --accent: #cc3a2c; --green: #1f8a56;
+      --on-accent: #ffffff;
+    }
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.6;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 64px 24px 80px; }
+  header { text-align: center; margin-bottom: 48px; }
+  h1 { font-size: clamp(44px, 8vw, 72px); font-weight: 800; letter-spacing: -1.5px; }
+  h1 .mark { color: var(--accent); }
+  .tagline { font-size: clamp(20px, 3.5vw, 28px); font-weight: 600; color: var(--muted); margin-top: 10px; }
+  .tagline b { color: var(--text); }
+  .sub { color: var(--muted); margin-top: 14px; font-size: 17px; }
+  .cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 26px; }
+  .btn {
+    display: inline-block; padding: 12px 22px; border-radius: 10px; font-weight: 700;
+    text-decoration: none; font-size: 16px;
+  }
+  .btn.primary { background: var(--accent); color: var(--on-accent); }
+  .btn.ghost { border: 1px solid var(--border); color: var(--text); }
+  .install {
+    margin: 18px auto 0; max-width: 620px; background: var(--panel); border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px 18px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 15px; text-align: left; overflow-x: auto; white-space: nowrap;
+  }
+  .install .c { color: var(--muted); }
+  figure { margin-top: 40px; }
+  .demo { width: 100%; height: auto; border-radius: 14px; border: 1px solid var(--border); display: block; }
+  figcaption { text-align: center; color: var(--muted); font-size: 15px; margin-top: 10px; }
+  h2 { font-size: 26px; font-weight: 800; margin: 56px 0 16px; letter-spacing: -0.5px; }
+  p + p { margin-top: 12px; }
+  ul.features { list-style: none; display: grid; gap: 12px; }
+  ul.features li {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px;
+  }
+  ul.features b { display: block; }
+  .scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; }
+  table { border-collapse: collapse; width: 100%; font-size: 15px; min-width: 560px; }
+  th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--border); }
+  th { background: var(--panel); font-weight: 700; }
+  tr:last-child td { border-bottom: none; }
+  td code { color: var(--text); }
+  pre {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px 18px; overflow-x: auto; font-size: 14.5px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; line-height: 1.7;
+  }
+  pre .c { color: var(--muted); }
+  blockquote {
+    border-left: 3px solid var(--accent); padding: 4px 0 4px 16px; margin: 16px 0;
+    color: var(--text); font-size: 19px; font-style: italic;
+  }
+  a { color: var(--accent); }
+  .fact { color: var(--muted); }
+  .faq h3 { font-size: 18px; font-weight: 700; margin: 24px 0 6px; letter-spacing: -0.2px; }
+  .faq p { color: var(--muted); }
+  .faq p b, .faq p code { color: var(--text); }
+  footer { margin-top: 64px; text-align: center; color: var(--muted); font-size: 15px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🏋️ Prompt<span class="mark">Ups</span></h1>
+    <p class="tagline">Prompt Claude. <b>Drop and give me ten.</b></p>
+    <p class="sub">Every time you prompt <a href="https://claude.com/claude-code">Claude Code</a>, your webcam turns into a rep counter — squats and desk push-ups counted out loud by a trash-talking coach — and a chime tells you the second your code is ready. <b>The AI gets smarter. Now you get stronger.</b></p>
+    <div class="cta">
+      <a class="btn primary" href="https://github.com/Tatendaz/promptups">GitHub →</a>
+      <a class="btn ghost" href="https://github.com/Tatendaz/promptups/blob/main/ROADMAP.md">Roadmap</a>
+    </div>
+    <div class="install"><span class="c"># clone, wire the hooks (it asks first), go</span><br>git clone https://github.com/Tatendaz/promptups &amp;&amp; cd promptups<br>node bin/promptups.js init</div>
+  </header>
+
+  <!-- The figure removes itself until docs/demo.gif exists, so the page never
+       shows a broken image. Drop the gif in and it appears on the next deploy. -->
+  <figure id="demo-figure">
+    <img class="demo" src="demo.gif" alt="PromptUps demo: submitting a Claude Code prompt turns the scoreboard orange, the webcam counts squats as the coach calls each rep, and a chime marks Claude's reply" onerror="document.getElementById('demo-figure').remove()">
+    <figcaption>Hit enter. The scoreboard goes orange and the coach starts counting.</figcaption>
+  </figure>
+
+  <h2>Why</h2>
+  <p>A real Claude Code prompt takes thirty seconds to five minutes. Multiply by every prompt in a vibe-coding session and you're sitting on <b>an hour of dead time a day</b> — currently donated to your X feed.</p>
+  <p>PromptUps claims it back, with <b>zero workflow change</b>.</p>
+
+  <ul class="features">
+    <li><b>⌨️ You hit enter</b> The scoreboard goes orange and the coach says go.</li>
+    <li><b>🎥 The camera counts</b> MediaPipe pose landmarks, hysteresis thresholds, no honor system. Half reps don't count.</li>
+    <li><b>🗣️ The coach talks</b> Every rep counted out loud, trash talk at milestones, a roast if you just stand there.</li>
+    <li><b>🔔 Claude replies</b> Chime, rep summary, back to your diff.</li>
+    <li><b>📈 Stats accrue</b> Today, all time, best set, prompts survived.</li>
+  </ul>
+
+  <h2>How it works</h2>
+  <pre>you hit enter ──► UserPromptSubmit hook ──► POST /promptups/start ──► camera counts reps
+Claude replies ──► Stop hook             ──► POST /promptups/stop  ──► chime + set summary</pre>
+  <p><code>init</code> writes three hooks into <code>~/.claude/settings.json</code> — it shows them to you, asks first, and backs up the file:</p>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Claude Code event</th><th>What PromptUps does</th></tr></thead>
+      <tbody>
+        <tr><td><code>UserPromptSubmit</code></td><td>Starts a set. Scoreboard orange, coach says go.</td></tr>
+        <tr><td><code>Stop</code></td><td>Ends the set. Chime, summary, back to work.</td></tr>
+        <tr><td><code>Notification</code></td><td>"CLAUDE NEEDS YOU" — amber alert, back to the keyboard.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="fact">Each hook is a <code>curl</code> with a one-second timeout that ignores failure, so <b>Claude Code behaves identically whether PromptUps is running or not</b>. The page listens on a server-sent-events stream and does everything else itself.</p>
+
+  <h2>The camera is honest</h2>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Exercise</th><th>Counted from</th><th>Thresholds</th></tr></thead>
+      <tbody>
+        <tr><td>Squats</td><td>knee angle (hip–knee–ankle)</td><td>down &lt; 110°, up &gt; 155°</td></tr>
+        <tr><td>Desk push-ups</td><td>elbow angle (shoulder–elbow–wrist)</td><td>down &lt; 105°, up &gt; 150°</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="fact">Both run through a hysteresis state machine with smoothing and a minimum down-phase, so landmark jitter and quick bounces can't inflate your numbers.</p>
+
+  <h2>The coach</h2>
+  <p>The coach counts every rep through the Web Speech API and has opinions:</p>
+  <blockquote>"Twenty-five seconds. Zero reps. The camera sees everything."</blockquote>
+  <p>Default mode uses built-in line banks and works offline. Start with <code>--ai-coach</code> and end-of-set lines come from a <code>claude -p</code> Haiku call instead — one short generation per set, with the line bank as fallback. Mute it with the <b>voice</b> button; your household has opinions too.</p>
+
+  <h2>Privacy</h2>
+  <p>Every camera frame is processed by MediaPipe <b>inside your browser tab</b> and discarded. Nothing is recorded, nothing leaves your machine. The only network traffic is the one-time CDN fetch of the pose model (about 5 MB, cached after) and localhost. Session totals — exercise, reps, timestamps — live in <code>~/.promptups/sessions.json</code>.</p>
+
+  <h2>Quick start</h2>
+  <pre>git clone https://github.com/Tatendaz/promptups &amp;&amp; cd promptups
+node bin/promptups.js init    <span class="c"># shows the hooks, asks first, backs up settings.json</span>
+node bin/promptups.js         <span class="c"># starts the server, opens http://localhost:7887</span></pre>
+  <p class="fact">Allow camera access, pick your exercise, then go prompt Claude in your terminal — the page reacts on its own from there. <b>No dependencies to install:</b> the server is Node's <code>http</code> module. Not ready to wire the hooks? Hit <b>test drive</b> in the header at <code>localhost:7887</code> to fake a prompt.</p>
+
+  <section class="faq">
+    <h2>FAQ</h2>
+    <h3>Which cameras work?</h3>
+    <p>Any the browser can see. The built-in webcam handles squats and desk push-ups. An iPhone via Continuity Camera shows up automatically on macOS — prop it against a wall and the floor comes into frame, which is what real push-ups and sit-ups need. USB webcams work too.</p>
+    <h3>What's next?</h3>
+    <p>Seated arm exercises (v0.2), standing exercises for the 1 m × 1 m box in front of your desk with squats counted from head movement (v0.3), then AirPods head-motion tracking so the camera becomes optional (v0.4) — then calories, streaks, and Apple Watch. The full plan is in <a href="https://github.com/Tatendaz/promptups/blob/main/ROADMAP.md">ROADMAP.md</a>.</p>
+    <h3>How do I add an exercise?</h3>
+    <p>It's the easiest PR: one entry in <code>EXERCISES</code> in <code>public/reps.js</code> — a joint triple per side, two angle thresholds, and a framing cue — plus a case in <code>tests/reps.test.js</code>. Run <code>npm test</code> (24 tests, <code>node:test</code>, no dependencies) and open a PR. Coach lines live in <code>public/coach.js</code>; funny beats polite.</p>
+    <h3>How do I uninstall it?</h3>
+    <p><code>node bin/promptups.js uninstall</code> removes only its own hooks and backs up <code>settings.json</code> first. <code>rm -rf ~/.promptups</code> if you also want your stats gone.</p>
+  </section>
+
+  <footer>
+    MIT © <a href="https://github.com/Tatendaz">Tatendaz</a> ·
+    <a href="https://github.com/Tatendaz/promptups">Source</a> ·
+    <a href="https://tatendaz.github.io/">More work</a><br>
+    <span class="fact">Built for people who told themselves they'd stretch between prompts and never did.</span>
+  </footer>
+</div>
+</body>
+</html>
