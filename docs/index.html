@@ -207,7 +207,7 @@ Claude replies ──► Stop hook             ──► POST /promptups/stop  �
   <p>Default mode uses built-in line banks and works offline. Start with <code>--ai-coach</code> and end-of-set lines come from a <code>claude -p</code> Haiku call instead — one short generation per set, with the line bank as fallback. Mute it with the <b>voice</b> button; your household has opinions too.</p>
 
   <h2>Privacy</h2>
-  <p>Every camera frame is processed by MediaPipe <b>inside your browser tab</b> and discarded. Nothing is recorded, nothing is uploaded. The page pulls the MediaPipe runtime and pose model from CDNs on first load (~8.5 MB, cached after) plus two Google webfonts — none of those origins see you; everything else is localhost. Session totals — exercise, reps, timestamps — live in <code>~/.promptups/sessions.json</code>.</p>
+  <p>Every camera frame is processed by MediaPipe <b>inside your browser tab</b> and discarded. No camera frame is recorded or uploaded — no pixel of you reaches a server. The page pulls the MediaPipe runtime and pose model from CDNs on first load (~8.5 MB, cached after) plus two Google webfonts — none of those origins receive camera data. In default mode everything else is localhost; with <code>--ai-coach</code> the server also makes one <code>claude -p</code> call per set to Anthropic under your own account. Session totals — exercise, reps, timestamps — live in <code>~/.promptups/sessions.json</code>.</p>
 
   <h2>Quick start</h2>
   <pre>git clone https://github.com/Tatendaz/promptups &amp;&amp; cd promptups

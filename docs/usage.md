@@ -47,8 +47,8 @@ This is a genuine trade-off, not a bug: you want to know Claude is blocked.
 
 ## Network origins
 
-No pixel of you reaches a server, but the page is not offline. It fetches from
-four origins. None of them ever receive camera data — a request carries only
+No pixel of you reaches a server, but the page is not offline. In default
+mode it fetches from four origins. None of them ever receive camera data — a request carries only
 the ordinary metadata any web fetch does (IP address, user agent):
 
 - `cdn.jsdelivr.net` — the MediaPipe runtime and WASM
@@ -63,8 +63,10 @@ the ordinary metadata any web fetch does (IP address, user agent):
 
 A cold first load is ~8.5 MB over the wire for the MediaPipe payload (runtime +
 WASM + pose model); the two webfont requests (~54 KB) are separate, on top.
-Everything else is localhost. Self-host the fonts and a warm page talks to
-nothing but your own machine.
+In default mode everything else is localhost — self-host the fonts and a warm
+page talks to nothing but your own machine. The one exception is opt-in: with
+`--ai-coach`, the server runs one short `claude -p` call per set, which goes to
+Anthropic under your own Claude account (see [The coach, in detail](#the-coach-in-detail)).
 
 ## Cameras
 

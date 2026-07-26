@@ -39,7 +39,7 @@ node bin/promptups.js init    # shows the hooks, asks first, backs up settings.j
 node bin/promptups.js         # starts the server, opens http://localhost:7887
 ```
 
-Allow camera access, pick your exercise, then go prompt Claude in your terminal — the page reacts on its own from there. First load pulls MediaPipe from a CDN (~8.5 MB over the wire, cached after). **Keep the page visible**: a hidden or covered tab counts zero reps. Not ready to wire the hooks? Hit **test drive** in the header to fake a prompt.
+Allow camera access, pick your exercise, then go prompt Claude in your terminal — the page reacts on its own from there. First load pulls MediaPipe from two CDN origins (~8.5 MB over the wire, cached after — [full origin inventory](docs/usage.md#network-origins)). **Keep the page visible**: a hidden or covered tab counts zero reps. Not ready to wire the hooks? Hit **test drive** in the header to fake a prompt.
 
 Custom ports, env vars, and why the tab must stay visible: **[docs/usage.md](docs/usage.md)**.
 
@@ -90,7 +90,7 @@ Both run through a hysteresis state machine with smoothing and a minimum down-ph
 
 Every camera frame is processed by MediaPipe **inside your browser tab** and discarded. No frame is recorded, none is uploaded, no pixel of you reaches a server. That is what the badge means, and it is the claim that matters.
 
-The page is not offline, though: it pulls the MediaPipe runtime and pose model from two CDNs (once, then cached) and two Google webfonts. None of those origins ever receive camera data — they see only the ordinary metadata any web request carries; everything else is localhost. The full origin inventory: [docs/usage.md](docs/usage.md#network-origins). Session totals (exercise, reps, timestamps) live in `sessions.json` under `$PROMPTUPS_DATA_DIR`, defaulting to `~/.promptups`.
+The page is not offline, though: it pulls the MediaPipe runtime and pose model from two CDNs (once, then cached) and two Google webfonts. None of those origins ever receive camera data — they see only the ordinary metadata any web request carries. In default mode everything else is localhost; run with `--ai-coach` and the server also makes one short `claude -p` call per set to Anthropic through your own Claude account. The full origin inventory: [docs/usage.md](docs/usage.md#network-origins). Session totals (exercise, reps, timestamps) live in `sessions.json` under `$PROMPTUPS_DATA_DIR`, defaulting to `~/.promptups`.
 
 ## Uninstall
 
