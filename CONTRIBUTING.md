@@ -4,7 +4,7 @@ PromptUps is small, has zero dependencies, and PRs are genuinely welcome. The
 easiest one is [adding an exercise](#the-easiest-pr-add-an-exercise) — about
 eight lines and a test case.
 
-Before you start: **two of the three CI checks enforce conventions you cannot
+Before you start: **two of the required CI checks enforce conventions you cannot
 guess from reading the code.** Here they are, up front, so your first PR isn't
 red for reasons nobody told you about:
 
@@ -172,23 +172,38 @@ commit. Session stats are personal data — yours — and don't belong in the re
 
 ## The easiest PR: add an exercise
 
-One entry in `EXERCISES` in [`public/reps.js`](public/reps.js) — a joint triple
-per side, two angle thresholds, and a framing cue:
+Two edits. First, one entry in `EXERCISES` in [`public/reps.js`](public/reps.js)
+— a joint triple per side, two angle thresholds, and a framing cue. The angle is
+measured at the middle joint, so `hip–shoulder–elbow` is your shoulder opening
+up:
 
 ```js
 overheadPress: {
   label: "overhead press",
   sides: [[L.hipL, L.shoulderL, L.elbowL], [L.hipR, L.shoulderR, L.elbowR]],
-  downBelow: 60,   // elbows at shoulder height
+  downBelow: 90,   // upper arms level with the shoulders, racked
   upAbove: 150,    // arms locked out overhead
   cue: "face the camera, whole torso in frame",
 },
 ```
 
-Then add a button for it in [`public/index.html`](public/index.html) next to the
-other `.exercise-btn`s, add a case to
-[`tests/reps.test.js`](tests/reps.test.js) driving a counter through a rep, run
-`npm test`, write your two docs files, and open the PR.
+Second, a button for it in [`public/index.html`](public/index.html) next to the
+other `.exercise-btn`s:
+
+```html
+<button class="exercise-btn" role="radio" aria-checked="false" data-exercise="overheadPress">OVERHEAD PRESS</button>
+```
+
+Nothing renders that picker from `EXERCISES` — [`public/app.js`](public/app.js)
+only wires the `.exercise-btn` elements already in the page. Skip the button and
+your exercise is perfect and unreachable, and `npm test` passes anyway, because
+[`tests/reps.test.js`](tests/reps.test.js) covers the geometry, not the UI.
+(Making the button step disappear by rendering the picker from `EXERCISES` is
+itself a very welcome PR; it wants the DOM harness on the
+[roadmap](README.md#roadmap).)
+
+Then add a case to [`tests/reps.test.js`](tests/reps.test.js) driving a counter
+through a rep, run `npm test`, write your two docs files, and open the PR.
 
 Pick thresholds you have actually stood in front of a camera and tested. The
 whole promise of this project is that the numbers are honest.

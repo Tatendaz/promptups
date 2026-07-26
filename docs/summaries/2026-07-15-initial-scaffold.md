@@ -15,7 +15,7 @@
 - Checked prior art (webcam rep counters exist; none wired to an AI-agent wait loop) and GitHub name collisions. User picked "PromptUps" over WaitLift/Compiling Gains/RepL, and squats + desk push-ups as the v0.1 exercise set (desk-camera-visible).
 - Scaffolded the project: zero-dep Node server (SSE + hook endpoints + stats), CLI (`start`/`init`/`uninstall`), MediaPipe pose front end with gym-scoreboard styling, coach voice module with line banks and optional `claude -p` Haiku quips.
 - Verified all endpoints end to end with curl, launched the app locally for the user; they confirmed rep counting works.
-- Pre-push gate: extracted rep logic into `public/reps.js` for testability, made data/settings paths env-overridable, wrote 24 tests (rep counter, coach, server, CLI), all passing.
+- Pre-push gate: extracted rep logic into `public/reps.js` for testability, made data/settings paths env-overridable, wrote the test suite (rep counter, coach, server, CLI), all passing — 25 tests as of the CodeRabbit follow-up commit.
 - Installed the pr-gate workflow from the skill assets, replaced its generic npm step (needs a lockfile) with plain `npm test`, and hardened branch-slug interpolation against workflow injection on fork PRs.
 - Rewrote the README in the YapUI open-source style, ran the CodeRabbit pre-push review, created `github.com/Tatendaz/promptups` (public), and pushed.
 

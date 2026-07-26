@@ -2,7 +2,7 @@
 
 # 🏋️ PromptUps
 
-## Prompt Claude. Drop and give me ten.
+**Prompt Claude. Drop and give me ten.**
 
 Every time you prompt [Claude Code](https://claude.com/claude-code), your webcam turns into a rep counter — **squats and desk push-ups counted out loud by a trash-talking coach** — and a chime tells you the second your code is ready. The AI gets smarter. Now you get stronger.
 
@@ -21,9 +21,7 @@ Every time you prompt [Claude Code](https://claude.com/claude-code), your webcam
 
 ## Why PromptUps?
 
-A real Claude Code prompt takes thirty seconds to five minutes. Multiply by every prompt in a vibe-coding session and you're sitting on an hour of dead time a day — currently donated to your X feed.
-
-PromptUps claims it back, with zero workflow change:
+A real Claude Code prompt takes thirty seconds to five minutes — an hour of dead time a day, currently donated to your X feed. PromptUps claims it back, with zero workflow change:
 
 - ⌨️ **You hit enter** — the scoreboard goes orange and the coach says go.
 - 🎥 **The camera counts** — MediaPipe pose landmarks, hysteresis thresholds, no honor system. Half reps don't count.
@@ -33,21 +31,24 @@ PromptUps claims it back, with zero workflow change:
 
 ## Quick start
 
+You need **Node 18+, `git`, and `curl`** (the hooks are `curl` one-liners). There is nothing to `npm install` — the dependency count is zero.
+
 ```bash
 git clone https://github.com/Tatendaz/promptups && cd promptups
 node bin/promptups.js init    # shows the hooks, asks first, backs up settings.json
 node bin/promptups.js         # starts the server, opens http://localhost:7887
 ```
 
-Allow camera access, pick your exercise, then go prompt Claude in your terminal. The page reacts on its own from there. No dependencies to install — the server is Node's `http` module and the page pulls MediaPipe from a CDN on first load (about 5 MB, cached after).
+Allow camera access, pick your exercise, then go prompt Claude in your terminal — the page reacts on its own from there. First load pulls MediaPipe from two CDN origins (~8.5 MB over the wire, cached after — [full origin inventory](docs/usage.md#network-origins)). **Keep the page visible**: a hidden or covered tab counts zero reps. Not ready to wire the hooks? Hit **test drive** in the header to fake a prompt.
 
-Don't want to wire the hooks yet? Hit **test drive** in the header to fake a prompt.
+Custom ports, env vars, and why the tab must stay visible: **[docs/usage.md](docs/usage.md)**.
 
 ## How it works
 
-```
-you hit enter ──► UserPromptSubmit hook ──► POST /promptups/start ──► camera counts reps
-Claude replies ──► Stop hook             ──► POST /promptups/stop  ──► chime + set summary
+```text
+you hit enter  ──► UserPromptSubmit ──► POST /promptups/start                 ──► camera counts reps
+Claude replies ──► Stop             ──► POST /promptups/stop?reason=done      ──► chime + set summary
+Claude asks    ──► Notification     ──► POST /promptups/stop?reason=attention ──► amber alert + set summary
 ```
 
 `init` writes three hooks into `~/.claude/settings.json`:
@@ -56,31 +57,23 @@ Claude replies ──► Stop hook             ──► POST /promptups/stop  �
 | --- | --- |
 | `UserPromptSubmit` | Starts a set. Scoreboard orange, coach says go. |
 | `Stop` | Ends the set. Chime, summary, back to work. |
-| `Notification` | "CLAUDE NEEDS YOU" — amber alert, back to the keyboard. |
+| `Notification` | "CLAUDE NEEDS YOU" — amber alert. Hits the **same stop endpoint** as `Stop`, so the set ends here too. |
+
+That third row means a permission prompt mid-squat ends your set early — counted sets are banked, zero-rep sets and test drives are not. The full trade-off and how to opt out: [docs/usage.md](docs/usage.md#the-notification-trade-off).
 
 Each hook is a `curl` with a 1-second timeout that ignores failure, so Claude Code behaves identically whether PromptUps is running or not. The page listens on a server-sent-events stream and does everything else itself.
 
 ## The coach
 
-The coach counts every rep through the Web Speech API and has opinions:
+Every rep is counted out loud through the Web Speech API, with opinions:
 
 > "Twenty-five seconds. Zero reps. The camera sees everything."
 
-Default mode uses built-in line banks and works offline. Start with `--ai-coach` and end-of-set lines come from a `claude -p` Haiku call instead — one short generation per set, with the line bank as fallback:
-
-```bash
-node bin/promptups.js --ai-coach
-```
-
-Mute it with the `voice` button. Your household has opinions too.
+The default line banks work offline; `node bin/promptups.js --ai-coach` swaps end-of-set lines for a `claude -p` Haiku one-liner instead. Mute it with the **voice** button. More in [docs/usage.md](docs/usage.md#the-coach-in-detail).
 
 ## Cameras
 
-The picker lists every video device the browser can see:
-
-- **Built-in webcam** — sees you at your desk. Perfect for squats and desk push-ups.
-- **iPhone via Continuity Camera** — appears automatically on macOS. Prop it against a wall and the floor comes into frame, which is what real push-ups and sit-ups need. That's the next milestone.
-- **Any USB webcam** — point it wherever you train.
+The picker lists every video device the browser can see: built-in webcam for desk work, **iPhone via Continuity Camera** (automatic on macOS), any USB webcam. Details: [docs/usage.md](docs/usage.md#cameras).
 
 ## Exercises
 
@@ -95,13 +88,15 @@ Both run through a hysteresis state machine with smoothing and a minimum down-ph
 
 ## Privacy
 
-Every camera frame is processed by MediaPipe **inside your browser tab** and discarded. Nothing is recorded, nothing leaves your machine. The only network traffic is the one-time CDN fetch of the pose model, and localhost. Session totals (exercise, reps, timestamps) live in `~/.promptups/sessions.json`.
+Every camera frame is processed by MediaPipe **inside your browser tab** and discarded. No frame is recorded, none is uploaded, no pixel of you reaches a server. That is what the badge means, and it is the claim that matters.
+
+The page is not offline, though: it pulls the MediaPipe runtime and pose model from two CDNs (once, then cached) and two Google webfonts. None of those origins ever receive camera data — they see only the ordinary metadata any web request carries. In default mode everything else is localhost; run with `--ai-coach` and the server also makes one short `claude -p` call per set to Anthropic through your own Claude account. The full origin inventory: [docs/usage.md](docs/usage.md#network-origins). Session totals (exercise, reps, timestamps) live in `sessions.json` under `$PROMPTUPS_DATA_DIR`, defaulting to `~/.promptups`.
 
 ## Uninstall
 
 ```bash
 node bin/promptups.js uninstall   # removes only its own hooks, backs up settings.json first
-rm -rf ~/.promptups               # optional: delete your stats
+rm -rf "${PROMPTUPS_DATA_DIR:-$HOME/.promptups}"   # optional: delete your stats
 ```
 
 ## Roadmap
@@ -110,21 +105,7 @@ The full plan lives in [ROADMAP.md](ROADMAP.md). The short version: seated arm e
 
 ## Contributing
 
-The easiest PR: **add an exercise**. It's one entry in `EXERCISES` in [`public/reps.js`](public/reps.js) — a joint triple per side, two angle thresholds, and a framing cue:
-
-```js
-overheadPress: {
-  label: "overhead press",
-  sides: [[L.hipL, L.shoulderL, L.elbowL], [L.hipR, L.shoulderR, L.elbowR]],
-  downBelow: 60,   // elbows at shoulder height
-  upAbove: 150,    // arms locked out overhead
-  cue: "face the camera, whole torso in frame",
-},
-```
-
-Add a case to `tests/reps.test.js` and run `npm test` (57 tests, node:test, no dependencies, nothing to install). Coach lines live in [`public/coach.js`](public/coach.js) — funny beats polite.
-
-Then read **[CONTRIBUTING.md](CONTRIBUTING.md)** before you open the PR. Two of the three CI checks enforce conventions you can't guess from the code — branch naming, and two markdown files per PR — and that file is the only place they're written down.
+The easiest PR: **add an exercise**. Two edits — an entry in `EXERCISES` in [`public/reps.js`](public/reps.js) and a matching button in [`public/index.html`](public/index.html) — plus a case in `tests/reps.test.js`, then `npm test` (57 tests, node:test, nothing to install). The worked example lives in **[CONTRIBUTING.md](CONTRIBUTING.md)**, along with the CI conventions you can't guess from the code: branch naming, and two docs files per PR.
 
 ## License
 
