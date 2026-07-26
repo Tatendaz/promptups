@@ -23,3 +23,37 @@
 - **Kept the `Notification` hook rather than proposing its removal.** It is a genuine trade-off, not a bug — you want to know Claude is blocked. The README now states the cost and how to opt out.
 - Left `PROMPTUPS_SETTINGS` undocumented; it is a test seam, unlike `PROMPTUPS_DATA_DIR` and `PROMPTUPS_PORT`, which are user-facing.
 - Did not push and did not open a PR, per instruction.
+
+## Review follow-up session (2026-07-26)
+
+### Prompts
+
+3. Owner-commissioned independent review of PR #2 against the original three
+   requirements — accuracy, "a much smaller version", and no content lost
+   (anything cut must move into the repo and be linked) — with instruction to
+   fix shortfalls on this branch directly.
+
+### Steps taken
+
+- Re-verified every README claim against source and over the wire (CDN sizes
+  re-measured: 5.78 MB model, 2.61 MB WASM, ~40 KB runtime — the ~8.5 MB
+  figure holds). All eight advertised fixes/additions check out.
+- Found the requirement this branch declined: the slim. Restructured README.md
+  155 → 117 lines; moved every deep-dive paragraph into the new
+  `docs/usage.md`, linked from where it left. No sentence was dropped without
+  a new home reachable from the README.
+- Fixed drift the branch missed: CONTRIBUTING.md's copy of the `overheadPress`
+  snippet (still `downBelow: 60`), docs/index.html's "24 tests" (×2) and its
+  old one-origin/5 MB privacy sentence, and the stale `public/app.js`
+  attribution for the session-banking gate (now `shouldLogSession` in
+  `public/session.js`).
+- `npm test`: 57/57 passing after the changes.
+
+### Decisions
+
+- Deep detail moved to `docs/usage.md` rather than being deleted, honouring
+  the no-content-lost rule; CONTRIBUTING.md absorbed the contributing detail
+  since it already owned the worked example.
+- Left `docs/index.html`'s ROADMAP.md links alone: `ROADMAP.md` exists only on
+  the unmerged `docs/roadmap-exercise-research` branch, so fixing the 404 here
+  would either duplicate that branch or delete its inbound links — owner call.

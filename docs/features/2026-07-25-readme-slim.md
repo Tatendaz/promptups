@@ -25,3 +25,30 @@ A cold audit against source found that the README's privacy sentence, its flagsh
 - 134 → 151 lines. The target was "stays ~134" and no cut was warranted, but four of the eight items were additions of information that did not exist in the file. Every `##` heading in the file is identical to `origin/main`; the only outline change is the removed tagline H2.
 - No product code was changed, so `pr-gate.yml`'s coverage-for-new-code job has no source diff to match against tests.
 - Full suite: 25/25 passing on Node v22.23.1.
+
+## Review follow-up (2026-07-26)
+
+An independent review pass verified all of the above against source (all claims
+held) and then finished the half of the original brief this branch had skipped:
+the slim. Numbers in the Notes above describe the pre-merge state and are
+superseded — after merging `main` (which brought `public/session.js` and grew
+the suite to 57 tests) the README stood at 155 lines.
+
+- **README.md**: restructured from 155 to 117 lines. Identity, quick start,
+  the hook diagram/table, exercises, privacy, uninstall, roadmap and a compact
+  contributing pointer stay; every deep-dive paragraph (ports, tab visibility,
+  the Notification trade-off, the four network origins, cameras, coach modes)
+  moved to `docs/usage.md` and is linked from the section it left. The
+  `#privacy`, `#contributing` and `#roadmap` anchors (badges and
+  CONTRIBUTING.md link into them) are unchanged.
+- **docs/usage.md**: new home for the moved detail. Also corrects a
+  merge-drifted attribution: the bank-or-drop gate is `shouldLogSession` in
+  `public/session.js` now, not inline in `public/app.js`.
+- **CONTRIBUTING.md**: the `overheadPress` snippet still carried the old
+  `downBelow: 60 // elbows at shoulder height` defect this branch fixed in the
+  README — corrected to 90 with the geometric comment, and the button step now
+  shows the exact markup plus the "npm test passes anyway" trap.
+- **docs/index.html**: still said "24 tests" (JSON-LD and rendered FAQ, now
+  57, plus the button edit) and still carried the old one-origin/5 MB privacy
+  sentence (now the corrected runtime+model ~8.5 MB claim).
+- Suite after the changes: 57/57 passing.
