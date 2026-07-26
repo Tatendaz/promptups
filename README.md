@@ -51,7 +51,7 @@ Don't want to wire the hooks yet? Hit **test drive** in the header to fake a pro
 
 ## How it works
 
-```
+```text
 you hit enter  ──► UserPromptSubmit ──► POST /promptups/start                 ──► camera counts reps
 Claude replies ──► Stop             ──► POST /promptups/stop?reason=done      ──► chime + set summary
 Claude asks    ──► Notification     ──► POST /promptups/stop?reason=attention ──► amber alert + set summary
@@ -108,7 +108,9 @@ Every camera frame is processed by MediaPipe **inside your browser tab** and dis
 
 The page is not offline, though. It fetches from four origins, none of which see you: `cdn.jsdelivr.net` for the MediaPipe runtime and WASM, and `storage.googleapis.com` for the 5.8 MB pose model — both once, then cached ([`public/app.js`](public/app.js)) — plus `fonts.googleapis.com` and `fonts.gstatic.com` for two webfonts, which are **refetched-or-revalidated on every page load** rather than served purely from cache ([`public/index.html`](public/index.html)). Everything else is localhost. Self-host the fonts and a warm page talks to nothing but your own machine.
 
-Session totals (exercise, reps, timestamps) live in `~/.promptups/sessions.json`.
+Session totals (exercise, reps, timestamps) live in `sessions.json` under
+`$PROMPTUPS_DATA_DIR`, defaulting to `~/.promptups` — the same resolution
+`server.js` uses and the same one the uninstall snippet below honours.
 
 ## Uninstall
 
