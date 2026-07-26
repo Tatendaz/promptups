@@ -40,43 +40,27 @@ unenumerated third case that would fall through whatever the adapter does with
 an unknown location.
 
 ## What changed
-- `docs/research/airpods-head-tracking.md` — the option (a) inbound-contract
-  paragraph only. Adds:
-  - **Trust boundary.** States that localhost is not a boundary and why: a
-    simple cross-origin `POST` is not preflighted, so no CORS policy is
-    consulted before the write lands; DNS rebinding turns an attacker hostname
-    into a loopback origin; and every local process can post too. The server
-    binds loopback only — which `server.js` already does — and **before it
-    reads a body** requires `Authorization: Bearer <token>` and rejects any
-    request whose `Origin` is present and is not exactly the app's own
-    (`http://127.0.0.1:<port>`, or the `localhost` spelling — `server.js:111`
-    and `:195` are where that origin comes from).
-  - **Token handoff.** Minted at startup, never a fixed default, and explicitly
-    **not** passed in `argv` — process arguments are world-readable via `ps`.
-    An inherited file descriptor, or a `0600` file under `$PROMPTUPS_DATA_DIR`.
-  - **Envelope.** Always `{"samples": [...]}`, never a bare array or bare
-    sample, so batch-of-one and batch-of-fifty parse identically. The server
-    re-broadcasts one SSE `motion` event per **accepted** sample, so batching
-    stays a pure transport optimisation and the adapter never sees batch
-    boundaries.
-  - **Validation and batch atomicity.** Strict JSON types; `t`, `av` and
-    `pitch` finite and in range; a maximum body size and `samples` length,
-    enforced while reading; empty `samples` is a `400`. One invalid sample
-    rejects the whole batch and nothing from it is broadcast, so a malformed
-    tail cannot half-apply or poison the detector.
-  - **Session boundary.** A `session` identifier minted at startup, carried on
-    the `POST` and on every rebroadcast event. This is what makes "timestamps
-    compare only within a session" actionable: `t` is monotonic-since-boot and
-    its origin resets on helper restart, so the adapter resets state when the
-    identifier changes rather than trying to infer a restart from time running
-    backwards.
-  - **`loc` enum and quarantine.** A wire enum over `CMDeviceMotion.SensorLocation`:
-    `headphoneLeft`→`left`, `headphoneRight`→`right`, `.default`→`"default"`.
-    Quarantine is assigned explicitly to **the adapter**, not the server:
-    `"default"` samples are still rebroadcast like any other, so the per-sample
-    guarantee holds without exception, but the adapter does not count them and
-    resets its filter/baseline/hysteresis on any `loc` change, including to or
-    from `"default"`.
+One file: `docs/research/airpods-head-tracking.md`, the option (a)
+inbound-contract block. **The contract itself is the source of truth and is not
+restated here** — restating a spec in a changelog is how the two drift apart,
+which is the defect class this repo has spent the week removing. Read the block;
+this list is only a map of what it now covers.
+
+- **Trust boundary** — why localhost is not one, and what the server checks
+  before it reads a body (bearer token, `Origin` against the app's own two
+  spellings).
+- **Token handoff** — startup-minted, never defaulted, and explicitly not via
+  `argv`.
+- **Envelope and SSE shape** — the `samples` object in, one `motion` event per
+  accepted sample out, with the event's `data` schema given.
+- **Validation and batch atomicity** — units, finiteness, range and size limits,
+  `413` vs `400`, and all-or-nothing batches.
+- **Session boundary** — server-minted, client-supplied values untrusted, and
+  what the adapter resets on.
+- **`loc` enum and quarantine** — the three wire values, and quarantine assigned
+  to the adapter rather than the server.
+
+The block also records which limits are deliberately *not* fixed yet, and why.
 
 ## Notes
 Docs-only; no source file changes, so the `New code has new tests` gate has
