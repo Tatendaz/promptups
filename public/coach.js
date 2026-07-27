@@ -3,6 +3,8 @@
 // lines come fresh from a local `claude -p` Haiku call (see /api/quip),
 // and these banks become the offline fallback.
 
+import { authHeaders } from "./auth.js";
+
 export const LINES = {
   start: [
     "Claude's typing. Drop.",
@@ -60,7 +62,7 @@ async function quip(moment, reps, exercise) {
     const timer = setTimeout(() => controller.abort(), 6500);
     const res = await fetch(
       `/api/quip?moment=${encodeURIComponent(moment)}&reps=${reps}&exercise=${encodeURIComponent(exercise)}`,
-      { signal: controller.signal }
+      { signal: controller.signal, headers: authHeaders() }
     );
     clearTimeout(timer);
     const data = await res.json();

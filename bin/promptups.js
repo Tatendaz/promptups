@@ -11,7 +11,7 @@ import os from "node:os";
 import path from "node:path";
 import readline from "node:readline";
 import { spawn } from "node:child_process";
-import { startServer } from "../server.js";
+import { startServer, TOKEN_FILE } from "../server.js";
 
 const args = process.argv.slice(2);
 // Anything not starting with "-" is the subcommand. Short flags like -h count
@@ -76,11 +76,29 @@ if (!Number.isInteger(PORT) || PORT < 1 || PORT > 65535) {
 const MARKER = "/promptups/"; // identifies our hook commands for idempotent install/uninstall
 const SETTINGS = process.env.PROMPTUPS_SETTINGS || path.join(os.homedir(), ".claude", "settings.json");
 
+// The server mints a token at startup and writes it 0600 to TOKEN_FILE; the
+// hook reads it at call time rather than baking the value in, so a restart (new
+// token) does not require rewriting settings.json. The token never appears in
+// the command line of a long-lived process — `$(cat ...)` is expanded by the
+// shell into curl's argv for the length of one 1-second request. Baking the
+// literal token into settings.json would instead leave it on disk in a
+// world-readable file.
+const AUTH = `-H "Authorization: Bearer $(cat '${TOKEN_FILE}' 2>/dev/null)"`;
+const hook = (pathAndQuery) =>
+  `curl -s -m 1 -X POST ${AUTH} 'http://127.0.0.1:${PORT}${pathAndQuery}' >/dev/null 2>&1 || true`;
+
 const HOOK_EVENTS = {
-  UserPromptSubmit: `curl -s -m 1 -X POST 'http://127.0.0.1:${PORT}/promptups/start' >/dev/null 2>&1 || true`,
-  Stop: `curl -s -m 1 -X POST 'http://127.0.0.1:${PORT}/promptups/stop?reason=done' >/dev/null 2>&1 || true`,
-  Notification: `curl -s -m 1 -X POST 'http://127.0.0.1:${PORT}/promptups/stop?reason=attention' >/dev/null 2>&1 || true`,
+  UserPromptSubmit: hook("/promptups/start"),
+  Stop: hook("/promptups/stop?reason=done"),
+  Notification: hook("/promptups/stop?reason=attention"),
 };
+
+// A hook that matches MARKER is ours, but "ours" is not the same as "still
+// works": it may predate the token, or point at a port we are no longer serving.
+// Current means byte-identical to what we would write right now, which catches
+// both without needing a rule per failure mode.
+const DESIRED = new Set(Object.values(HOOK_EVENTS));
+const isCurrent = (command) => DESIRED.has(String(command));
 
 function readSettings() {
   try {
@@ -113,23 +131,37 @@ async function init() {
   settings.hooks = settings.hooks || {};
 
   const additions = [];
+  const stale = [];
   for (const [event, command] of Object.entries(HOOK_EVENTS)) {
     const entries = (settings.hooks[event] = settings.hooks[event] || []);
-    const installed = entries.some((e) => (e.hooks || []).some((h) => String(h.command).includes(MARKER)));
-    if (!installed) additions.push([event, command]);
+    const ours = entries.flatMap((e) =>
+      (e.hooks || []).filter((h) => String(h.command).includes(MARKER))
+    );
+    if (ours.length === 0) additions.push([event, command]);
+    else if (ours.some((h) => !isCurrent(h.command))) stale.push([event, command, ours]);
   }
 
-  if (additions.length === 0) {
-    console.log("PromptUps hooks already installed. Nothing to do.");
+  if (additions.length === 0 && stale.length === 0) {
+    console.log("PromptUps hooks already installed and up to date. Nothing to do.");
     return;
   }
 
-  console.log(`This adds ${additions.length} hook(s) to ${SETTINGS}:\n`);
-  for (const [event, command] of additions) console.log(`  ${event}\n    ${command}\n`);
+  if (additions.length) {
+    console.log(`This adds ${additions.length} hook(s) to ${SETTINGS}:\n`);
+    for (const [event, command] of additions) console.log(`  ${event}\n    ${command}\n`);
+  }
+  if (stale.length) {
+    console.log(`This updates ${stale.length} existing hook(s) in ${SETTINGS}.\n`);
+    console.log("They don't match what PromptUps would write now — either they predate");
+    console.log("the access token, or they point at a different port. Both fail the same");
+    console.log("way: silently, because a failing hook is deliberately invisible to Claude");
+    console.log("Code, so your sets just stop counting. The new commands:\n");
+    for (const [event, command] of stale) console.log(`  ${event}\n    ${command}\n`);
+  }
   console.log("Each pings the local PromptUps server and gives up after 1 second,");
   console.log("so Claude Code is never slowed down, even when PromptUps is not running.\n");
 
-  if (!(await confirm("Install?"))) {
+  if (!(await confirm(stale.length && !additions.length ? "Update?" : "Install?"))) {
     console.log("Skipped. Run `promptups init` any time.");
     return;
   }
@@ -138,11 +170,17 @@ async function init() {
   for (const [event, command] of additions) {
     settings.hooks[event].push({ hooks: [{ type: "command", command }] });
   }
+  for (const [, command, ours] of stale) {
+    for (const h of ours) h.command = command;
+  }
   fs.mkdirSync(path.dirname(SETTINGS), { recursive: true });
   fs.writeFileSync(SETTINGS, JSON.stringify(settings, null, 2));
 
   if (backup) console.log(`Backed up previous settings to ${backup}`);
-  console.log("Hooks installed. Restart open Claude Code sessions (or run /hooks) to pick them up.");
+  const what = [additions.length && `installed ${additions.length}`, stale.length && `updated ${stale.length}`]
+    .filter(Boolean)
+    .join(", ");
+  console.log(`Hooks ${what}. Restart open Claude Code sessions (or run /hooks) to pick them up.`);
 }
 
 async function uninstall() {
@@ -175,7 +213,11 @@ function start() {
 
   Workout page:  ${url}
   AI coach:      ${process.env.PROMPTUPS_AI_COACH === "1" ? "on (claude -p, haiku)" : "off (pass --ai-coach)"}
-  Hooks:         ${hooksInstalled() ? "installed" : "not installed — run: node bin/promptups.js init"}
+  Hooks:         ${{
+    current: "installed",
+    stale: "OUT OF DATE — they predate the token, so sets will not count.\n                 Fix: node bin/promptups.js init",
+    none: "not installed — run: node bin/promptups.js init",
+  }[hookStatus()]}
 
   Prompt Claude in another terminal. Then move.
 `);
@@ -189,11 +231,16 @@ function start() {
   }
 }
 
-function hooksInstalled() {
+// "none" | "stale" | "current". `stale` is the case that used to be invisible:
+// the hooks are present, so nothing looks wrong, but they predate the token and
+// the server now rejects them.
+function hookStatus() {
   const settings = readSettings();
-  return Object.values(settings.hooks || {}).some((entries) =>
-    entries.some((e) => (e.hooks || []).some((h) => String(h.command).includes(MARKER)))
+  const ours = Object.values(settings.hooks || {}).flatMap((entries) =>
+    entries.flatMap((e) => (e.hooks || []).filter((h) => String(h.command).includes(MARKER)))
   );
+  if (ours.length === 0) return "none";
+  return ours.every((h) => isCurrent(h.command)) ? "current" : "stale";
 }
 
 // cmd is already validated against COMMANDS above, so `else` can only be "start".
