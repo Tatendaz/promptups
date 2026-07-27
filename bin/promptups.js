@@ -215,7 +215,7 @@ function start() {
   AI coach:      ${process.env.PROMPTUPS_AI_COACH === "1" ? "on (claude -p, haiku)" : "off (pass --ai-coach)"}
   Hooks:         ${{
     current: "installed",
-    stale: "OUT OF DATE — they predate the token, so sets will not count.\n                 Fix: node bin/promptups.js init",
+    stale: "OUT OF DATE or incomplete — sets will not count.\n                 Fix: node bin/promptups.js init",
     none: "not installed — run: node bin/promptups.js init",
   }[hookStatus()]}
 
@@ -236,11 +236,17 @@ function start() {
 // the server now rejects them.
 function hookStatus() {
   const settings = readSettings();
-  const ours = Object.values(settings.hooks || {}).flatMap((entries) =>
-    entries.flatMap((e) => (e.hooks || []).filter((h) => String(h.command).includes(MARKER)))
+  const ours = Object.entries(HOOK_EVENTS).map(([event]) =>
+    (settings.hooks?.[event] || []).flatMap((e) =>
+      (e.hooks || []).filter((h) => String(h.command).includes(MARKER))
+    )
   );
-  if (ours.length === 0) return "none";
-  return ours.every((h) => isCurrent(h.command)) ? "current" : "stale";
+  if (ours.every((hooks) => hooks.length === 0)) return "none";
+  // Every one of the three events must be present *and* match. A partial
+  // install is stale, not current: with only Stop wired up, sets would never
+  // start, and reporting "installed" would send you looking anywhere but here.
+  const complete = ours.every((hooks) => hooks.length > 0 && hooks.every((h) => isCurrent(h.command)));
+  return complete ? "current" : "stale";
 }
 
 // cmd is already validated against COMMANDS above, so `else` can only be "start".

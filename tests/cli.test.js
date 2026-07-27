@@ -29,6 +29,57 @@ const countOurHooks = (settings) =>
 // otherwise hang the whole suite instead of failing.
 const RUN_TIMEOUT = 10_000;
 
+// --- hook freshness (issue #7) -------------------------------------------
+// A hook that predates the token, points at another port, or is only partly
+// installed all fail the same way: silently, because the commands end in
+// `|| true`. `init` has to be able to repair them, or the only fix is to know
+// to run `uninstall` first.
+
+test("init rewrites hooks that predate the access token", async () => {
+  const stale = {
+    hooks: {
+      UserPromptSubmit: [
+        { hooks: [{ type: "command", command: "curl -s -m 1 -X POST 'http://127.0.0.1:7887/promptups/start' || true" }] },
+      ],
+    },
+  };
+  const { dir, file, env } = tempSettings(stale);
+  const { stdout } = await run("node", [bin, "init", "--yes"], { env, timeout: RUN_TIMEOUT });
+  assert.match(stdout, /updates 1 existing hook/i, "should offer to update, not skip");
+
+  const after = JSON.parse(fs.readFileSync(file, "utf8"));
+  const rewritten = after.hooks.UserPromptSubmit[0].hooks[0].command;
+  assert.match(rewritten, /Authorization: Bearer/, "the rewritten hook must carry the token");
+  assert.equal(countOurHooks(after), 3, "the two missing hooks should be added too");
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test("init repairs hooks left pointing at a port nobody serves", async () => {
+  // Install on the default port, then re-init on another one.
+  const { dir, file, env } = tempSettings({});
+  await run("node", [bin, "init", "--yes"], { env, timeout: RUN_TIMEOUT });
+  const before = JSON.parse(fs.readFileSync(file, "utf8"));
+  assert.match(JSON.stringify(before), /7887/);
+
+  const { stdout } = await run("node", [bin, "init", "--yes", "--port=8000"], { env, timeout: RUN_TIMEOUT });
+  assert.match(stdout, /updates 3 existing hook/i);
+  const after = JSON.parse(fs.readFileSync(file, "utf8"));
+  assert.doesNotMatch(JSON.stringify(after), /7887/, "no hook should still point at the old port");
+  assert.equal(countOurHooks(after), 3, "repair must not duplicate hooks");
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test("init leaves a complete, current install alone", async () => {
+  const { dir, file, env } = tempSettings({});
+  await run("node", [bin, "init", "--yes"], { env, timeout: RUN_TIMEOUT });
+  const first = fs.readFileSync(file, "utf8");
+
+  const { stdout } = await run("node", [bin, "init", "--yes"], { env, timeout: RUN_TIMEOUT });
+  assert.match(stdout, /already installed and up to date/i);
+  assert.equal(fs.readFileSync(file, "utf8"), first, "a no-op init must not rewrite the file");
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
 test("--help prints usage and exits 0 instead of starting the server", async () => {
   const { dir, file, env } = tempSettings();
   const { stdout } = await run("node", [bin, "--help"], { env, timeout: RUN_TIMEOUT });
