@@ -34,7 +34,8 @@ concurrency:
 jobs:
   docs-gate:
     name: Docs gate (features + summaries)
-    if: github.event_name == 'pull_request'
+    # Dependabot bumps never carry docs entries; the docs gate is for human/agent PRs.
+    if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
