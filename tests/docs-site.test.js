@@ -1,6 +1,7 @@
 // Checks that the GitHub Pages landing page (docs/index.html) stays agent-readable:
 // the text and <h1> sit inside <main>, and the Markdown twin that
 // <link rel="alternate" type="text/markdown"> points at mirrors the page.
+// The custom 404 page (docs/404.html) must keep its Markdown pointers and absolute links.
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -12,6 +13,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SLUG = "promptups";
 const HTML = fs.readFileSync(path.join(ROOT, "docs", "index.html"), "utf8");
 const MD = fs.readFileSync(path.join(ROOT, "docs", "index.md"), "utf8");
+const HTML_404 = fs.readFileSync(path.join(ROOT, "docs", "404.html"), "utf8");
 
 // Tags are removed by a character walk rather than a regex: CodeQL treats regex-based
 // HTML filtering as a sanitizer bug (js/bad-tag-filter), and a loop is clearer anyway.
@@ -61,8 +63,8 @@ function innerOf(html, tag) {
   }
   return found;
 }
-function section(tag) {
-  const found = innerOf(HTML, tag);
+function section(tag, html = HTML) {
+  const found = innerOf(html, tag);
   assert.equal(found.length, 1, `expected exactly one <${tag}>`);
   return found[0];
 }
@@ -85,6 +87,22 @@ function tagNames(fragment) {
     }
   }
   return names;
+}
+// Every value of a `name="..."` attribute in the document, located with indexOf.
+function attrValues(html, name) {
+  const values = [];
+  const marker = " " + name + '="';
+  let from = 0;
+  for (;;) {
+    const at = html.indexOf(marker, from);
+    if (at === -1) break;
+    const start = at + marker.length;
+    const end = html.indexOf('"', start);
+    if (end === -1) break;
+    values.push(html.slice(start, end));
+    from = end + 1;
+  }
+  return values;
 }
 // The Markdown twin as plain text: no code blocks, links and images reduced to their text.
 const twinPlain = (md) => squash(
@@ -133,4 +151,42 @@ test("Markdown twin carries every paragraph and list item", () => {
   for (const block of blocks) {
     assert.ok(plain.includes(block), `twin is missing the text: ${block.slice(0, 80)}`);
   }
+});
+
+// GitHub Pages serves docs/404.html, with a real 404 status, for every missing path under
+// /promptups/ at any depth, so a relative URL on it resolves against the wrong directory.
+test("404 page is noindex, has no canonical or alternate links, and links absolutely", () => {
+  assert.ok(section("title", HTML_404).includes("404"), "title names the status");
+  assert.ok(section("head", HTML_404).includes('<meta name="robots" content="noindex">'));
+  assert.ok(!HTML_404.includes('rel="canonical"'), "a 404 has no canonical URL");
+  assert.ok(!HTML_404.includes('rel="alternate"'), "a 404 has no alternate version");
+  const urls = [...attrValues(HTML_404, "href"), ...attrValues(HTML_404, "src")];
+  assert.ok(urls.length >= 6, "expected the next-step and footer links");
+  const absolute = ["/promptups/", "http", "mailto:", "data:", "#"];
+  for (const url of urls) {
+    assert.ok(absolute.some((prefix) => url.startsWith(prefix)), `URL would break at depth: ${url}`);
+  }
+});
+
+// The Is Agentic "agent-friendly 404" check credits a real 404 whose body carries short
+// Markdown guidance; the Markdown lives in a <pre class="md"> inside <main>.
+test("404 page gives agents short Markdown pointers inside <main>", () => {
+  const main = section("main", HTML_404);
+  assert.equal(count(main, "<h1"), 1, "the <h1> must be inside <main>");
+  const boilerplate = tagNames(main).filter((t) => ["header", "nav", "aside", "footer"].includes(t));
+  assert.deepEqual(boilerplate, [], "boilerplate element(s) inside <main> would hide content from agents");
+  assert.ok(blockText(main).length < 1500, "a 404 should say little: under 1,500 characters of text");
+  assert.ok(main.includes('<pre class="md"'), 'the Markdown block is <pre class="md">');
+  const md = decode(section("pre", main)).trim();
+  assert.ok(md.startsWith("# 404"), "Markdown block opens with an H1 naming the status");
+  assert.ok(md.includes("\n## Where to look next\n"), "Markdown block has the next-steps heading");
+  for (const needle of [
+    "- [Site map](https://tatendaz.github.io/sitemap.xml)",
+    "- [llms.txt](https://tatendaz.github.io/llms.txt)",
+    "https://tatendaz.github.io/promptups/",
+  ]) {
+    assert.ok(md.includes(needle), `Markdown block is missing: ${needle}`);
+  }
+  assert.ok(md.length < 700, "Markdown block must stay short");
+  assert.deepEqual(tagNames(md), [], "Markdown block must be plain text, not HTML");
 });
