@@ -6,6 +6,8 @@
 <title>PromptUps — your webcam counts reps while Claude Code thinks</title>
 <meta name="description" content="Every time you prompt Claude Code, your webcam turns into a rep counter: squats and desk push-ups counted out loud by a trash-talking coach, and a chime the second your code is ready. MediaPipe pose detection runs entirely in your browser. Zero dependencies, MIT.">
 <link rel="canonical" href="https://tatendaz.github.io/promptups/">
+<link rel="alternate" type="text/markdown" href="/promptups/index.md" title="Markdown version of this page">
+<link rel="describedby" href="/llms.txt">
 <meta name="theme-color" content="#0d0f12">
 <meta property="og:type" content="website">
 <meta property="og:title" content="PromptUps — Prompt Claude. Drop and give me ten.">
@@ -146,6 +148,7 @@
 </head>
 <body>
 <div class="wrap">
+  <main>
   <header>
     <h1>🏋️ Prompt<span class="mark">Ups</span></h1>
     <p class="tagline">Prompt Claude. <b>Drop and give me ten.</b></p>
@@ -230,10 +233,12 @@ node bin/promptups.js         <span class="c"># starts the server, opens http://
     <p><code>node bin/promptups.js uninstall</code> removes only its own hooks and backs up <code>settings.json</code> first. <code>rm -rf ~/.promptups</code> if you also want your stats gone.</p>
   </section>
 
+  </main>
   <footer>
     MIT © <a href="https://github.com/Tatendaz">Tatendaz</a> ·
     <a href="https://github.com/Tatendaz/promptups">Source</a> ·
-    <a href="https://tatendaz.github.io/">More work</a><br>
+    <a href="https://tatendaz.github.io/">More work</a> ·
+    <a href="https://tatendaz.github.io/llms.txt">llms.txt</a><br>
     <span class="fact">Built for people who told themselves they'd stretch between prompts and never did.</span>
   </footer>
 </div>
