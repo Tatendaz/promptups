@@ -6,7 +6,7 @@ Every time you prompt [Claude Code](https://claude.com/claude-code), your webcam
 
 [GitHub →](https://github.com/Tatendaz/promptups) [Roadmap](https://github.com/Tatendaz/promptups/blob/main/ROADMAP.md)
 
-```
+```sh
 # clone, wire the hooks (it asks first), go
 git clone https://github.com/Tatendaz/promptups && cd promptups
 node bin/promptups.js init
@@ -34,7 +34,7 @@ PromptUps claims it back, with **zero workflow change**.
 
 ## How it works
 
-```
+```text
 you hit enter ──► UserPromptSubmit hook ──► POST /promptups/start ──► camera counts reps
 Claude replies ──► Stop hook             ──► POST /promptups/stop  ──► chime + set summary
 ```
@@ -72,7 +72,7 @@ Every camera frame is processed by MediaPipe **inside your browser tab** and dis
 
 ## Quick start
 
-```
+```sh
 git clone https://github.com/Tatendaz/promptups && cd promptups
 node bin/promptups.js init    # shows the hooks, asks first, backs up settings.json
 node bin/promptups.js         # starts the server, opens http://localhost:7887
