@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>404 — Page not found — promptups</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#0d0f12">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8F%8B%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<!-- GitHub Pages serves this file, with a real 404 status, for every missing path
+     under /promptups/ — at any depth, so every URL below is absolute. No canonical
+     or alternate links: there is nothing here to index. Styles are copied from
+     index.html, trimmed to the rules this page uses. -->
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: #0d0f12; --panel: #16191e; --border: rgba(255,255,255,0.11);
+    --text: #f2efe9; --muted: #9a948a; --accent: #ff5c4d;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #faf7f2; --panel: #ffffff; --border: rgba(0,0,0,0.12);
+      --text: #1c1a17; --muted: #6b665e; --accent: #cc3a2c;
+    }
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.6;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 64px 24px 80px; }
+  .eyebrow {
+    color: var(--accent); font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 15px; font-weight: 700; letter-spacing: 1px;
+  }
+  h1 { font-size: clamp(36px, 6vw, 56px); font-weight: 800; letter-spacing: -1.2px; margin-top: 6px; }
+  h2 { font-size: 26px; font-weight: 800; margin: 40px 0 12px; letter-spacing: -0.5px; }
+  p { margin-top: 12px; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  ul { margin-top: 8px; padding-left: 22px; }
+  li + li { margin-top: 6px; }
+  a { color: var(--accent); }
+  .fact { color: var(--muted); }
+  pre.md {
+    margin-top: 14px; background: var(--panel); color: var(--text);
+    border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14.5px; line-height: 1.7;
+    white-space: pre-wrap; overflow-wrap: anywhere;
+  }
+  footer { margin-top: 64px; text-align: center; color: var(--muted); font-size: 15px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <main>
+  <p class="eyebrow">HTTP 404</p>
+  <h1>Page not found</h1>
+  <p>There is no page at this address under <code>tatendaz.github.io/promptups/</code>. This is a real HTTP 404, not a redirect: check the path, or start again from one of the links below.</p>
+
+  <h2>Where to look next</h2>
+  <ul>
+    <li><a href="https://tatendaz.github.io/promptups/">promptups docs</a> — the project page</li>
+    <li><a href="https://tatendaz.github.io/promptups/index.md">promptups docs as Markdown</a> — the same page as plain Markdown</li>
+    <li><a href="https://github.com/Tatendaz/promptups">Source on GitHub</a></li>
+    <li><a href="https://tatendaz.github.io/llms.txt">llms.txt</a> — guide and docs index for AI agents</li>
+    <li><a href="https://tatendaz.github.io/sitemap.xml">Site map</a> — every indexable page on this host</li>
+    <li><a href="https://tatendaz.github.io/">Home</a></li>
+  </ul>
+
+  <h2>For agents</h2>
+  <p class="fact">The same pointers as plain Markdown, so a crawler that lands here can move on without parsing the page.</p>
+  <pre class="md" aria-label="Markdown pointers for agents">
+# 404: no page at this path on tatendaz.github.io/promptups
+
+## Where to look next
+
+- [promptups docs](https://tatendaz.github.io/promptups/): the project page (HTML)
+- [promptups docs as Markdown](https://tatendaz.github.io/promptups/index.md): the same page as plain Markdown
+- [Source on GitHub](https://github.com/Tatendaz/promptups)
+- [llms.txt](https://tatendaz.github.io/llms.txt): guide and docs index for AI agents
+- [Site map](https://tatendaz.github.io/sitemap.xml): every indexable page on this host
+- [Home](https://tatendaz.github.io/)
+</pre>
+  </main>
+  <footer>
+    MIT © <a href="https://github.com/Tatendaz">Tatendaz</a> ·
+    <a href="https://github.com/Tatendaz/promptups">Source</a> ·
+    <a href="https://tatendaz.github.io/">More work</a> ·
+    <a href="https://tatendaz.github.io/llms.txt">llms.txt</a><br>
+    <span class="fact">Built for people who told themselves they'd stretch between prompts and never did.</span>
+  </footer>
+</div>
+</body>
+</html>
