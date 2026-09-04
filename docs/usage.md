@@ -17,17 +17,43 @@ tab goes dark.
 
 ## Ports and environment variables
 
-`--port=N` (or `PROMPTUPS_PORT`) moves the server off the default `7887`, but
-`init` bakes the port into the three `curl` commands it writes
-([`bin/promptups.js`](../bin/promptups.js)). So `init` on the default and then
-`--port=8000` leaves you with a server nobody is talking to and no error
-anywhere. Re-running `init --port=8000` will *not* repair it — it sees hooks
-already installed and exits. To move ports: `uninstall`, then `init
---port=8000`, then start on 8000. (`--yes` skips the `init` confirmation.)
+`--port=N` (or `PROMPTUPS_PORT`) moves the server off the default `7887`, and
+`init` bakes that port into the three `curl` commands it writes
+([`bin/promptups.js`](../bin/promptups.js)). So the hooks and the server have to
+agree on it.
+
+**Re-running `init --port=8000` now repairs a mismatch.** `init` compares each
+installed hook against what it would write today and offers to rewrite the ones
+that differ, so a changed port and a hook predating the access token are both
+fixed the same way. (This used to be a trap: `init` saw hooks already installed,
+said so, and exited — leaving you pointed at a port nobody was serving, with no
+error anywhere. `uninstall` then `init` was the only way out.) `--yes` skips the
+confirmation.
 
 Session data lives in `sessions.json` under `$PROMPTUPS_DATA_DIR`, defaulting
 to `~/.promptups` — the same resolution [`server.js`](../server.js) uses and the
 same one the README's uninstall snippet honours.
+
+## The access token
+
+The server mints a random token on every start and writes it to `token` in that
+same directory, readable only by you (`0600`). The endpoints that change
+something — `/promptups/start`, `/promptups/stop`, `POST /api/session` and
+`/api/quip` — require it. The workout page gets it because the server injects it
+into the page it serves; the hooks get it by reading the file at call time,
+which is why a restart does not mean re-running `init`.
+
+This exists because the server listens on a fixed, guessable port with no
+password. Any website you happened to have open could otherwise start and stop
+your sets, write fake records into your stats, or — with `--ai-coach` — spend
+your Claude quota. None of that needed a bug; it was just what an open endpoint
+on `localhost` allows.
+
+**If you installed the hooks before this landed, re-run `promptups init`.** It
+now detects out-of-date hooks and offers to rewrite them, and `promptups start`
+prints `Hooks: OUT OF DATE` when it sees them. Without that, an old hook is
+rejected and Claude Code never shows it, because the hooks are written to fail
+quietly — your sets would simply stop counting.
 
 ## The Notification trade-off
 

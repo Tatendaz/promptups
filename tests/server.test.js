@@ -10,11 +10,15 @@ const tmpData = fs.mkdtempSync(path.join(os.tmpdir(), "promptups-test-"));
 process.env.PROMPTUPS_DATA_DIR = tmpData;
 delete process.env.PROMPTUPS_AI_COACH;
 
-const { startServer } = await import("../server.js");
+const { startServer, TOKEN_FILE } = await import("../server.js");
 
 const server = startServer(0);
 await new Promise((resolve) => server.on("listening", resolve));
 const base = `http://127.0.0.1:${server.address().port}`;
+
+// The server minted this on startup. The hooks read the same file.
+const TOKEN = fs.readFileSync(TOKEN_FILE, "utf8");
+const auth = (extra = {}) => ({ ...extra, authorization: `Bearer ${TOKEN}` });
 
 test.after(() => {
   server.close();
@@ -25,12 +29,12 @@ test("state starts idle, flips on start, clears on stop", async () => {
   let state = await (await fetch(`${base}/api/state`)).json();
   assert.equal(state.thinking, false);
 
-  await fetch(`${base}/promptups/start`, { method: "POST" });
+  await fetch(`${base}/promptups/start`, { method: "POST", headers: auth() });
   state = await (await fetch(`${base}/api/state`)).json();
   assert.equal(state.thinking, true);
   assert.ok(state.startedAt > 0);
 
-  await fetch(`${base}/promptups/stop?reason=attention`, { method: "POST" });
+  await fetch(`${base}/promptups/stop?reason=attention`, { method: "POST", headers: auth() });
   state = await (await fetch(`${base}/api/state`)).json();
   assert.equal(state.thinking, false);
   assert.equal(state.reason, "attention");
@@ -41,7 +45,7 @@ test("sessions persist and aggregate into stats", async () => {
   const post = (reps) =>
     fetch(`${base}/api/session`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: auth({ "content-type": "application/json" }),
       body: JSON.stringify({ exercise: "squats", reps, startedAt: now, endedAt: now }),
     });
   await post(7);
@@ -120,6 +124,127 @@ test("unknown paths 404 as JSON, not a crash", async () => {
 test("quip endpoint returns null quip when AI coach is off", async () => {
   const res = await (await fetch(`${base}/api/quip?moment=done&reps=5&exercise=squats`)).json();
   assert.equal(res.quip, null);
+});
+
+// ---------------------------------------------------------------------------
+// Authentication (issue #7). Each of these is a request a page you merely
+// visited could previously have made.
+// ---------------------------------------------------------------------------
+
+const STATE_CHANGING = [
+  ["/promptups/start", "POST"],
+  ["/promptups/stop", "POST"],
+  ["/api/session", "POST"],
+];
+
+test("no token is rejected on every state-changing endpoint", async () => {
+  for (const [pathname, method] of STATE_CHANGING) {
+    const res = await fetch(`${base}${pathname}`, {
+      method,
+      headers: { "content-type": "application/json" },
+      body: method === "POST" ? "{}" : undefined,
+    });
+    assert.equal(res.status, 401, `${pathname} without a token`);
+  }
+});
+
+test("a wrong token is rejected, including one of the right length", async () => {
+  // Same length as the real token, so the rejection is not just a length check.
+  const sameLength = "0".repeat(TOKEN.length);
+  for (const bad of ["nope", sameLength, ""]) {
+    const res = await fetch(`${base}/promptups/start`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${bad}` },
+    });
+    assert.equal(res.status, 401, `token ${JSON.stringify(bad)}`);
+  }
+});
+
+test("a foreign Origin is rejected even when the token is correct", async () => {
+  // The case that matters: a page that somehow learned the token still cannot
+  // use it from another origin.
+  const res = await fetch(`${base}/promptups/start`, {
+    method: "POST",
+    headers: auth({ origin: "https://evil.example" }),
+  });
+  assert.equal(res.status, 403);
+});
+
+test("the app's own two origins are accepted", async () => {
+  const port = server.address().port;
+  for (const origin of [`http://127.0.0.1:${port}`, `http://localhost:${port}`]) {
+    const res = await fetch(`${base}/promptups/start`, {
+      method: "POST",
+      headers: auth({ origin }),
+    });
+    assert.equal(res.status, 200, origin);
+  }
+});
+
+test("GET cannot drive start/stop — an <img> tag must not fire them", async () => {
+  for (const pathname of ["/promptups/start", "/promptups/stop"]) {
+    const res = await fetch(`${base}${pathname}`, { method: "GET", headers: auth() });
+    assert.equal(res.status, 405, pathname);
+  }
+});
+
+test("the token file is not readable by anyone else", async () => {
+  const mode = fs.statSync(TOKEN_FILE).mode & 0o777;
+  assert.equal(mode, 0o600, `token file mode is ${mode.toString(8)}`);
+  assert.ok(TOKEN.length >= 32, "token should carry real entropy");
+});
+
+test("index.html carries the token so the page can call its own API", async () => {
+  const html = await (await fetch(`${base}/`)).text();
+  assert.match(html, /<meta name="promptups-token" content="[0-9a-f]{64}"/);
+  // Never cache a response with a per-run secret in it.
+  const res = await fetch(`${base}/`);
+  assert.match(res.headers.get("cache-control") || "", /no-store/);
+});
+
+test("an oversized session body is refused with 413, not buffered", async () => {
+  const res = await fetch(`${base}/api/session`, {
+    method: "POST",
+    headers: auth({ "content-type": "application/json" }),
+    body: JSON.stringify({ exercise: "squats", reps: 1, pad: "x".repeat(80 * 1024) }),
+  });
+  assert.equal(res.status, 413);
+});
+
+test("a session record is sanity-checked before it reaches the stats", async () => {
+  const post = (body) =>
+    fetch(`${base}/api/session`, {
+      method: "POST",
+      headers: auth({ "content-type": "application/json" }),
+      body: JSON.stringify(body),
+    });
+
+  assert.equal((await post({ exercise: "squats", reps: 10_001 })).status, 400);
+  assert.equal((await post({ exercise: "squats", reps: -5 })).status, 400);
+  assert.equal((await post("not json at all")).status, 400);
+
+  // An over-long exercise name is truncated rather than rejected: it is cosmetic,
+  // and dropping a real set over a label would lose the reps.
+  const res = await post({ exercise: "q".repeat(500), reps: 1 });
+  assert.equal(res.status, 200);
+  const onDisk = JSON.parse(fs.readFileSync(path.join(tmpData, "sessions.json"), "utf8"));
+  assert.equal(onDisk.at(-1).exercise.length, 64);
+});
+
+test("quip needs a token too — it spends the user's Claude quota", async () => {
+  process.env.PROMPTUPS_AI_COACH = "1";
+  try {
+    const res = await fetch(`${base}/api/quip?moment=done&reps=5&exercise=squats`);
+    assert.equal(res.status, 401);
+  } finally {
+    delete process.env.PROMPTUPS_AI_COACH;
+  }
+});
+
+test("read-only endpoints stay open, so the page works before it has a token", async () => {
+  for (const pathname of ["/api/state", "/api/stats"]) {
+    assert.equal((await fetch(`${base}${pathname}`)).status, 200, pathname);
+  }
 });
 
 test("SSE hello event carries current state on connect", async () => {

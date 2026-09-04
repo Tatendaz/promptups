@@ -10,6 +10,7 @@ import {
   PoseLandmarker,
   DrawingUtils,
 } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
+import { authHeaders } from "./auth.js";
 import { coach } from "./coach.js";
 import { EXERCISES, RepCounter, visibleAngle } from "./reps.js";
 import {
@@ -128,7 +129,7 @@ async function endSession(reason) {
   if (shouldLogSession(done)) {
     fetch("/api/session", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: authHeaders({ "content-type": "application/json" }),
       body: JSON.stringify(sessionPayload(done, reason)),
     }).then((r) => r.json()).then(renderStats).catch(() => {});
   }
