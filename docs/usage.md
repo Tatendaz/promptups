@@ -92,3 +92,21 @@ node bin/promptups.js --ai-coach
 ```
 
 Mute it with the `voice` button. Your household has opinions too.
+
+## Requests from other websites
+
+The server listens on `127.0.0.1` only, but a page you visit in the same
+browser can still send it requests. Two checks in
+[`server.js`](../server.js) stop that:
+
+- The `Host` header must be `127.0.0.1:<port>` or `localhost:<port>`. This
+  blocks DNS rebinding, where a hostile domain is made to resolve to your
+  machine so its page can read the replies.
+- On `/promptups/*`, `/api/*` and `/events`, a request that a browser marks as
+  coming from another site (`Sec-Fetch-Site` other than `same-origin` or
+  `none`, or a foreign `Origin`) gets a `403`. The hooks are `curl` calls,
+  which send neither header, so they keep working with no re-`init`.
+
+The workout page itself stays open to links from other sites. Serving HTML to
+another site's page gives that page nothing, because the browser does not let
+it read the response.

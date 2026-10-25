@@ -96,6 +96,34 @@ function readBody(req) {
   });
 }
 
+// The server binds to 127.0.0.1, but a page on another site can still reach it:
+// the browser sends cross-site requests without asking first, and a DNS
+// rebinding attack makes the attacker's own hostname resolve here. Two checks
+// close both without touching the hooks, which are curl calls to 127.0.0.1.
+
+// DNS rebinding: the request reaches us, but the Host header still names the
+// attacker's domain. Only our own two spellings are accepted.
+function hostAllowed(req, port) {
+  const host = req.headers.host;
+  return host === `127.0.0.1:${port}` || host === `localhost:${port}`;
+}
+
+// A browser labels every request with Sec-Fetch-Site and sends Origin on
+// cross-origin ones; curl sends neither. So a missing header is the hook, and a
+// present one has to say the request came from our own page.
+function crossSite(req, port) {
+  const site = req.headers["sec-fetch-site"];
+  if (site && site !== "same-origin" && site !== "none") return true;
+  const origin = req.headers.origin;
+  return Boolean(origin) && origin !== `http://127.0.0.1:${port}` && origin !== `http://localhost:${port}`;
+}
+
+// Everything that changes state, spends the Claude quota, or returns data.
+// Static files stay open so a link to the app from another page still loads it.
+function isEndpoint(pathname) {
+  return pathname.startsWith("/promptups/") || pathname.startsWith("/api/") || pathname === "/events";
+}
+
 export function startServer(port) {
   const server = http.createServer(async (req, res) => {
     try {
@@ -108,7 +136,14 @@ export function startServer(port) {
   });
 
   async function handle(req, res) {
-    const url = new URL(req.url, `http://127.0.0.1:${port}`);
+    // The port actually bound, which is not `port` when the caller passed 0.
+    const boundPort = server.address()?.port ?? port;
+    const url = new URL(req.url, `http://127.0.0.1:${boundPort}`);
+
+    if (!hostAllowed(req, boundPort)) return sendJson(res, 403, { error: "forbidden host" });
+    if (isEndpoint(url.pathname) && crossSite(req, boundPort)) {
+      return sendJson(res, 403, { error: "forbidden origin" });
+    }
 
     // Event bus: hooks hit these. GET allowed too so `curl` testing is easy.
     if (url.pathname === "/promptups/start") {
