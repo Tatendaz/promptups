@@ -17,8 +17,11 @@ caught two unpinned actions in `dependency-review.yml` in the 2026-10-25 sweep
 ## What changed
 - `.github/dependabot.yml` (new): `npm` and `github-actions`, monthly,
   `cooldown.default-days: 7`, one minor+patch group each, at most 3 open PRs.
-- `.coderabbit.yaml` (new): `reviews.auto_review.ignore_usernames:
-  ["dependabot[bot]"]`, so Dependabot PRs do not spend CodeRabbit reviews.
+- `.github/workflows/merge-when-clean.yml` (new, owner template, unchanged):
+  every 30 minutes and on status events, merges Dependabot PRs and the owner's
+  `security/*` or `automerge`-labelled PRs once CI is green, a real review ran
+  (CodeRabbit "Review completed" or `review-failover` success) and 0 threads
+  are open.
 - `.npmrc` (new): `min-release-age=7`. npm 11.10+ reads it; older npm warns
   and ignores it.
 - `.github/workflows/zizmor.yml` (new): `zizmor==1.31.1 --min-severity medium .`.
