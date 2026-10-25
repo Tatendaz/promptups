@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 
@@ -130,4 +131,60 @@ test("SSE hello event carries current state on connect", async () => {
   controller.abort();
   const text = new TextDecoder().decode(value);
   assert.match(text, /"type":"hello"/);
+});
+
+// fetch() will not let a test set Host, so these go through node:http, which
+// sends exactly the headers it is given.
+function rawRequest(pathname, { method = "GET", headers = {} } = {}) {
+  return new Promise((resolve, reject) => {
+    const req = http.request(
+      { host: "127.0.0.1", port: server.address().port, path: pathname, method, headers },
+      (res) => {
+        res.resume();
+        resolve(res.statusCode);
+      }
+    );
+    req.on("error", reject);
+    req.end();
+  });
+}
+
+test("a hook-style request with no browser headers still works", async () => {
+  assert.equal(await rawRequest("/promptups/stop?reason=done", { method: "POST" }), 200);
+  assert.equal(
+    await rawRequest("/api/state", { headers: { host: `localhost:${server.address().port}` } }),
+    200
+  );
+});
+
+test("rejects a DNS-rebound request whose Host is another domain", async () => {
+  const headers = { host: `evil.example:${server.address().port}` };
+  assert.equal(await rawRequest("/api/stats", { headers }), 403);
+  assert.equal(await rawRequest("/promptups/start", { method: "POST", headers }), 403);
+  assert.equal(await rawRequest("/", { headers }), 403);
+});
+
+test("rejects endpoint calls a page on another site makes", async () => {
+  const fromAnotherSite = { "sec-fetch-site": "cross-site" };
+  assert.equal(await rawRequest("/promptups/start", { headers: fromAnotherSite }), 403);
+  assert.equal(await rawRequest("/api/quip?moment=x", { headers: fromAnotherSite }), 403);
+  assert.equal(
+    await rawRequest("/api/session", { method: "POST", headers: { origin: "https://evil.example" } }),
+    403
+  );
+  // localhost on another port is the same site, but not our page.
+  assert.equal(await rawRequest("/events", { headers: { "sec-fetch-site": "same-site" } }), 403);
+});
+
+test("our own page and a typed-in URL still reach the endpoints", async () => {
+  const port = server.address().port;
+  assert.equal(
+    await rawRequest("/api/state", {
+      headers: { "sec-fetch-site": "same-origin", origin: `http://localhost:${port}` },
+    }),
+    200
+  );
+  assert.equal(await rawRequest("/api/stats", { headers: { "sec-fetch-site": "none" } }), 200);
+  // A link to the app from another site still opens the page itself.
+  assert.equal(await rawRequest("/", { headers: { "sec-fetch-site": "cross-site" } }), 200);
 });
