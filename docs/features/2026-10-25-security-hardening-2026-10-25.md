@@ -27,8 +27,9 @@ caught two unpinned actions in `dependency-review.yml` in the 2026-10-25 sweep
 - `.github/workflows/zizmor.yml` (new): `zizmor==1.31.1 --min-severity medium .`.
   Scanning the repo root covers `dependabot.yml` too, so removing the cooldown
   fails the job.
-- `.github/workflows/dependabot-auto-merge.yml`: top-level token is now
-  `contents: read`; the write scopes moved onto the one job that needs them.
+- `.github/workflows/dependabot-auto-merge.yml` (deleted): it merged
+  Dependabot patch/minor PRs on green CI with no review. `merge-when-clean.yml`
+  now merges non-major Dependabot PRs, and only after a real review.
 
 ## Notes
 - Security updates ignore the Dependabot cooldown, so advisories still get a
