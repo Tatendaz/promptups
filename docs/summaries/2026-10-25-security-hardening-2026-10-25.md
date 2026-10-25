@@ -11,6 +11,7 @@
 - Validated `dependabot.yml` and `.coderabbit.yaml` with `check-jsonschema` against those schemas.
 - Added the zizmor workflow and confirmed `--min-severity high` exits 14 on an unpinned action and 0 on this repo.
 - Moved the auto-merge write scopes from workflow level to job level.
+- After the backup review on Vergance #19: switched the gate to `--min-severity medium .`, so it also checks `dependabot.yml` (removing the cooldown is a medium finding).
 
 ## Decisions
 - **zizmor through `pipx run` with a pinned version**, not a marketplace action: no extra third-party action to pin and trust.

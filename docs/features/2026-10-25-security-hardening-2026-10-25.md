@@ -4,9 +4,9 @@
 **Date:** 2026-10-25 local (2026-10-25 UTC)
 
 ## Summary
-Dependabot now opens at most one batched PR per ecosystem per month, and only
-for releases at least 7 days old. A new `zizmor` workflow fails any PR that
-adds a high-severity workflow issue.
+Dependabot now batches minor and patch updates into one PR per ecosystem per
+month (major bumps open on their own, at most 3 open PRs in all), only for
+releases at least 7 days old. A new `zizmor` workflow fails any PR that adds a medium- or high-severity issue to the workflows or `dependabot.yml`.
 
 ## Motivation
 Several worms in August to October 2026 shipped as new versions of trusted
@@ -21,7 +21,9 @@ caught two unpinned actions in `dependency-review.yml` in the 2026-10-25 sweep
   ["dependabot[bot]"]`, so Dependabot PRs do not spend CodeRabbit reviews.
 - `.npmrc` (new): `min-release-age=7`. npm 11.10+ reads it; older npm warns
   and ignores it.
-- `.github/workflows/zizmor.yml` (new): `zizmor==1.31.1 --min-severity high`.
+- `.github/workflows/zizmor.yml` (new): `zizmor==1.31.1 --min-severity medium .`.
+  Scanning the repo root covers `dependabot.yml` too, so removing the cooldown
+  fails the job.
 - `.github/workflows/dependabot-auto-merge.yml`: top-level token is now
   `contents: read`; the write scopes moved onto the one job that needs them.
 
